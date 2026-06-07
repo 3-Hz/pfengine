@@ -1,0 +1,21 @@
+# Rust
+/target
+# Cargo.lock is intentionally tracked (binary/app workspace).
+
+# Docs site (Zensical build output + Python venv)
+/docs-site/site
+.venv
+
+# Claude Code per-user local settings
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+*.swp
+.idea
+
+# Editor: track shared run/debug configs, ignore user-local settings.
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
