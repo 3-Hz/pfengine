@@ -1,0 +1,24 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+authors = ["Ed Zhao"]
+repository = ""
+
+# Shared dependency versions so all crates stay in lockstep.
+[workspace.dependencies]
+fixed = { version = "1", features = ["serde"] }
+serde = { version = "1", features = ["derive"] }
+ggrs = "0.11"
+macroquad = "0.4"
+pf_core = { path = "crates/pf_core" }
+pf_net = { path = "crates/pf_net" }
+pf_render = { path = "crates/pf_render" }
+
+# A small release profile tweak: deterministic overflow behavior matters for the
+# fixed-point sim, so keep overflow checks on even in release for now.
+[profile.release]
+overflow-checks = true

@@ -1,0 +1,12 @@
+[package]
+name = "pf_core"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# The determinism wall: pf_core depends ONLY on fixed-point math and serde
+# (for GGRS input (de)serialization). No rendering, no OS, no f32-based crates.
+[dependencies]
+fixed.workspace = true
+serde.workspace = true

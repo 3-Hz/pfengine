@@ -1,0 +1,6 @@
+# macroquad/miniquad provide a set of host functions (sapp_*, gl*, fs_*) from
+# their JavaScript glue at runtime in the browser. Recent rust-lld rejects these
+# as undefined at link time rather than emitting them as wasm imports, so we tell
+# the wasm linker to allow undefined symbols (they resolve against the JS host).
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--allow-undefined"]

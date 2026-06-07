@@ -1,0 +1,11 @@
+[package]
+name = "pf_render"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+
+# Presentation only: reads World, never mutates it. Floats are fine here.
+[dependencies]
+macroquad.workspace = true
+pf_core.workspace = true
