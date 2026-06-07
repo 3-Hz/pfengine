@@ -1,0 +1,8 @@
+{
+  // Recommended extensions (all available on Open VSX for VSCodium).
+  // CodeLLDB is required for the Rust debug configurations in launch.json.
+  "recommendations": [
+    "rust-lang.rust-analyzer",
+    "vadimcn.vscode-lldb"
+  ]
+}

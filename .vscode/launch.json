@@ -1,0 +1,71 @@
+{
+  // Run & Debug configurations for pfengine.
+  //
+  // Rust debugging uses CodeLLDB (vadimcn.vscode-lldb), available on Open VSX
+  // for VSCodium. The `cargo` block builds and locates the artifact, so no
+  // hard-coded binary paths are needed.
+  //
+  // The docs config uses the bundled JS debugger's "node-terminal" type, which
+  // simply runs a command in an integrated terminal — no extra extension needed.
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Engine (pf_app)",
+      "cargo": {
+        "args": ["build", "--package=pf_app", "--bin=pf_app"],
+        "filter": { "name": "pf_app", "kind": "bin" }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug Engine (pf_app, release)",
+      "cargo": {
+        "args": ["build", "--package=pf_app", "--bin=pf_app", "--release"],
+        "filter": { "name": "pf_app", "kind": "bin" }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug: Determinism Test (pf_net)",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=pf_net"],
+        "filter": { "name": "pf_net", "kind": "lib" }
+      },
+      "args": ["tests::determinism_holds_under_rollback", "--exact", "--nocapture"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug: All pf_net Tests",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=pf_net"],
+        "filter": { "name": "pf_net", "kind": "lib" }
+      },
+      "args": ["--nocapture"],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "node-terminal",
+      "request": "launch",
+      "name": "Run Docs Site (Zensical serve)",
+      "command": "${workspaceFolder}/.venv/bin/zensical serve",
+      "cwd": "${workspaceFolder}/docs-site"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run Engine + Docs",
+      "configurations": ["Debug Engine (pf_app)", "Run Docs Site (Zensical serve)"],
+      "stopAll": true
+    }
+  ]
+}
