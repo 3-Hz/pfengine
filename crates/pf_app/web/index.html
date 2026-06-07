@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pfengine</title>
+    <style>
+        html, body, canvas {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #121218;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas" tabindex="1"></canvas>
+    <!-- macroquad's JS glue: provides the sapp_*/gl*/fs_* host functions. -->
+    <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
+    <script>
+        load("pf_app.wasm"); // place the built wasm next to this file (see README)
+    </script>
+</body>
+</html>
