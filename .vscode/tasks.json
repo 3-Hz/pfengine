@@ -1,0 +1,92 @@
+{
+  // pfengine tasks. Run with: Terminal -> Run Task...  (or bind a key to
+  // "workbench.action.tasks.runTask"). All tasks are plain shell commands, so
+  // they work in VSCodium with no extensions installed.
+  "version": "2.0.0",
+  "tasks": [
+    // ---------------------------------------------------------------- engine
+    {
+      "label": "cargo: build (workspace)",
+      "type": "shell",
+      "command": "cargo build --workspace",
+      "problemMatcher": ["$rustc"],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "cargo: build (release)",
+      "type": "shell",
+      "command": "cargo build --workspace --release",
+      "problemMatcher": ["$rustc"],
+      "group": "build"
+    },
+    {
+      "label": "cargo: run engine (pf_app)",
+      "type": "shell",
+      "command": "cargo run -p pf_app",
+      "problemMatcher": ["$rustc"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "cargo: run engine (release)",
+      "type": "shell",
+      "command": "cargo run -p pf_app --release",
+      "problemMatcher": ["$rustc"],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "cargo: test — determinism gate (pf_net)",
+      "type": "shell",
+      "command": "cargo test -p pf_net",
+      "problemMatcher": ["$rustc"],
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "cargo: test (workspace)",
+      "type": "shell",
+      "command": "cargo test --workspace",
+      "problemMatcher": ["$rustc"],
+      "group": "test"
+    },
+    {
+      "label": "cargo: clippy",
+      "type": "shell",
+      "command": "cargo clippy --workspace --all-targets",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "label": "cargo: build wasm (pf_app)",
+      "type": "shell",
+      "command": "cargo build -p pf_app --target wasm32-unknown-unknown",
+      "problemMatcher": ["$rustc"],
+      "group": "build"
+    },
+    {
+      // Build the wasm, copy it next to the loader page, and serve it locally.
+      // Open http://localhost:8080 after it starts.
+      "label": "web: build & serve (pf_app)",
+      "type": "shell",
+      "command": "cargo build -p pf_app --target wasm32-unknown-unknown && cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/ && python3 -m http.server --directory crates/pf_app/web 8080",
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+
+    // ------------------------------------------------------------------ docs
+    {
+      // Live-reloading docs preview at http://localhost:8000
+      "label": "docs: serve (Zensical)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/zensical serve",
+      "options": { "cwd": "${workspaceFolder}/docs-site" },
+      "problemMatcher": [],
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      // Static build to docs-site/site
+      "label": "docs: build (Zensical)",
+      "type": "shell",
+      "command": "${workspaceFolder}/.venv/bin/zensical build",
+      "options": { "cwd": "${workspaceFolder}/docs-site" },
+      "problemMatcher": []
+    }
+  ]
+}
