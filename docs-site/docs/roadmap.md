@@ -38,6 +38,7 @@ projects — building a deep game on an unproven foundation.
 - [ ] Wrap `World` behind a GGRS `Config`.
 - [ ] `cargo test` runs SyncTest and stays green. :material-shield-check:
 - [ ] Local two-player on one machine.
+- [ ] Replay recording: initial seed + config + per-frame input stream, with periodic checksums. (Foundation for the Phase 6 viewer.)
 
 ## Phase 3 — Real netplay
 
@@ -48,7 +49,20 @@ projects — building a deep game on an unproven foundation.
 - [ ] Tunable input delay / prediction window.
 - [ ] Desync detection via checksums in the wild.
 
-## Phase 4 — The fighter
+## Phase 4 — Controllers & input
+
+> **Goal:** keyboard, standard gamepads, and a native GameCube adapter all map
+> to the same `Input`.
+> **Proves:** the input-source abstraction holds and analog fidelity survives
+> quantization — without ever touching determinism.
+
+- [ ] Input-source abstraction in `pf_app` (platform layer only; keyboard already wired).
+- [ ] Standard gamepads: `gilrs` on native, the Gamepad API on web.
+- [ ] Native GameCube adapter (WUP-028): USB-HID via `hidapi`/`rusb` on native, WebHID in the browser.
+- [ ] Analog calibration: deadzones, notch/edge clamping, deterministic quantization to the `i8` stick fields.
+- [ ] Per-player binding + hotplug.
+
+## Phase 5 — The fighter
 
 > **Goal:** real Melee-style combat.
 > **Proves:** the actual game feel. *(The long phase.)*
@@ -58,15 +72,16 @@ projects — building a deep game on an unproven foundation.
 - [ ] Knockback, hitstun, DI, hitlag.
 - [ ] First playable character + stage.
 
-## Phase 5 — Content & tooling
+## Phase 6 — Content & tooling
 
 > **Goal:** fast iteration for design.
 
 - [ ] Character / stage data formats.
 - [ ] Animation pipeline.
 - [ ] Debug tools: hitbox viewer, frame-step, input display.
+- [ ] Replay viewer: load an input-stream replay, scrub + frame-step, and validate playback against the recorded checksums.
 
-## Phase 6 — Ship everywhere
+## Phase 7 — Ship everywhere
 
 > **Goal:** all platforms + matchmaking.
 
@@ -81,4 +96,4 @@ projects — building a deep game on an unproven foundation.
     You don't need all of Rust up front. Front-load ownership/borrowing,
     `struct`/`enum` + pattern matching (your state machines *are* enums), traits
     (GGRS uses them), and `Result`/`Option`. Defer async, advanced lifetimes,
-    and `unsafe`. Phases 0–1 are the on-ramp; by Phase 4 you'll be fluent.
+    and `unsafe`. Phases 0–1 are the on-ramp; by Phase 5 you'll be fluent.
