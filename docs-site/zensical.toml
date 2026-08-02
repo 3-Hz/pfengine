@@ -7,7 +7,7 @@
 site_name = "pfengine"
 site_description = "A platform-agnostic platform fighter engine with deterministic simulation and rollback netcode."
 site_author = "Ed Zhao"
-#site_url = "https://<your-org>.github.io/pfengine/"
+site_url = "https://3-hz.github.io/pfengine/"
 
 copyright = """
 Copyright &copy; 2026 Ed Zhao

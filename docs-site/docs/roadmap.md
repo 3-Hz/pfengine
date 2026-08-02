@@ -15,9 +15,11 @@ projects — building a deep game on an unproven foundation.
 > **Goal:** a window that clears the screen on desktop *and* web.
 > **Proves:** the toolchain and cross-compilation work end to end.
 
-- [ ] Cargo workspace with `pf_core`, `pf_net`, `pf_render`, `pf_app`.
-- [ ] Desktop window via `winit`.
-- [ ] WASM build via Trunk, running in a browser.
+- [x] Cargo workspace with `pf_core`, `pf_net`, `pf_render`, `pf_app`.
+- [x] Desktop window via `macroquad` (`wgpu` + `winit` remain the eventual
+      target — see [Building everywhere](guide/builds.md)).
+- [x] WASM build compiling for `wasm32-unknown-unknown`.
+- [ ] That WASM build confirmed running in a browser.
 
 ## Phase 1 — Deterministic core skeleton
 
@@ -25,19 +27,22 @@ projects — building a deep game on an unproven foundation.
 > rendered.
 > **Proves:** the deterministic core ↔ render split.
 
-- [ ] Fixed-point `V2`, LUT trig, deterministic `Rng`.
-- [ ] Fixed-timestep loop; flat `World` state.
-- [ ] One capsule: gravity, ground collision, movement.
-- [ ] Render with interpolation (macroquad to start).
+- [x] Fixed-point `V2`, deterministic `Rng`.
+- [ ] LUT trig — deferred; nothing needs angles until knockback in Phase 5.
+- [x] Fixed-timestep loop; flat `World` state.
+- [x] One capsule: gravity, ground collision, movement.
+- [x] Render with interpolation (macroquad to start).
 
 ## Phase 2 — Rollback integration
 
 > **Goal:** `SyncTestSession` green in CI, then local 2-player.
 > **Proves:** determinism is real and guarded.
 
-- [ ] Wrap `World` behind a GGRS `Config`.
-- [ ] `cargo test` runs SyncTest and stays green. :material-shield-check:
-- [ ] Local two-player on one machine.
+- [x] Wrap `World` behind a GGRS `Config`.
+- [x] `cargo test` runs SyncTest and stays green. :material-shield-check:
+- [ ] Local two-player on one machine — `pf_app` polls two keyboard players
+      today, but steps `World` directly; it doesn't yet run through a GGRS
+      session.
 - [ ] Replay recording: initial seed + config + per-frame input stream, with periodic checksums. (Foundation for the Phase 6 viewer.)
 
 ## Phase 3 — Real netplay

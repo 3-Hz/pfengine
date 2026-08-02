@@ -4,10 +4,17 @@ on:
     branches:
       - master
       - main
+    paths:
+      - 'docs-site/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
 permissions:
   contents: read
   pages: write
   id-token: write
+defaults:
+  run:
+    working-directory: docs-site
 jobs:
   deploy:
     environment:
@@ -22,8 +29,10 @@ jobs:
           python-version: 3.x
       - run: pip install zensical
       - run: zensical build --clean
+      # `path` is resolved from the repo root — `defaults.run` does not apply to
+      # action inputs, only to `run:` steps.
       - uses: actions/upload-pages-artifact@v5
         with:
-          path: site
+          path: docs-site/site
       - uses: actions/deploy-pages@v5
         id: deployment
