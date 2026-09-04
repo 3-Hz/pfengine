@@ -47,6 +47,18 @@ lower crates stay fully portable.
     trunk build --release  # static site output
     ```
 
+    !!! note "What's actually wired today"
+
+        The Trunk setup above is the intended end state. While the renderer is
+        still macroquad, the web build is a manual copy — no Trunk in the repo
+        yet:
+
+        ```bash
+        cargo build -p pf_app --target wasm32-unknown-unknown
+        cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/
+        # then serve crates/pf_app/web/ over http and open index.html
+        ```
+
     Web netplay uses [matchbox](../architecture/rollback.md#the-web-netplay-trap-and-the-fix)
     (WebRTC), since browsers can't open raw UDP sockets.
 

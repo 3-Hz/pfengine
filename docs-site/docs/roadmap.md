@@ -15,9 +15,11 @@ projects — building a deep game on an unproven foundation.
 > **Goal:** a window that clears the screen on desktop *and* web.
 > **Proves:** the toolchain and cross-compilation work end to end.
 
-- [ ] Cargo workspace with `pf_core`, `pf_net`, `pf_render`, `pf_app`.
-- [ ] Desktop window via `winit`.
-- [ ] WASM build via Trunk, running in a browser.
+- [x] Cargo workspace with `pf_core`, `pf_net`, `pf_render`, `pf_app`.
+- [x] Desktop window via `macroquad` (`wgpu` + `winit` remain the eventual
+      target — see [Building everywhere](guide/builds.md)).
+- [x] WASM build compiling for `wasm32-unknown-unknown`.
+- [ ] That WASM build confirmed running in a browser.
 
 ## Phase 1 — Deterministic core skeleton
 
@@ -25,19 +27,23 @@ projects — building a deep game on an unproven foundation.
 > rendered.
 > **Proves:** the deterministic core ↔ render split.
 
-- [ ] Fixed-point `V2`, LUT trig, deterministic `Rng`.
-- [ ] Fixed-timestep loop; flat `World` state.
-- [ ] One capsule: gravity, ground collision, movement.
-- [ ] Render with interpolation (macroquad to start).
+- [x] Fixed-point `V2`, deterministic `Rng`.
+- [ ] LUT trig — deferred; nothing needs angles until knockback in Phase 5.
+- [x] Fixed-timestep loop; flat `World` state.
+- [x] One capsule: gravity, ground collision, movement.
+- [x] Render with interpolation (macroquad to start).
 
 ## Phase 2 — Rollback integration
 
 > **Goal:** `SyncTestSession` green in CI, then local 2-player.
 > **Proves:** determinism is real and guarded.
 
-- [ ] Wrap `World` behind a GGRS `Config`.
-- [ ] `cargo test` runs SyncTest and stays green. :material-shield-check:
-- [ ] Local two-player on one machine.
+- [x] Wrap `World` behind a GGRS `Config`.
+- [x] `cargo test` runs SyncTest and stays green. :material-shield-check:
+- [ ] Local two-player on one machine — `pf_app` polls two keyboard players
+      today, but steps `World` directly; it doesn't yet run through a GGRS
+      session.
+- [ ] Replay recording: initial seed + config + per-frame input stream, with periodic checksums. (Foundation for the Phase 6 viewer.)
 
 ## Phase 3 — Real netplay
 
@@ -48,7 +54,20 @@ projects — building a deep game on an unproven foundation.
 - [ ] Tunable input delay / prediction window.
 - [ ] Desync detection via checksums in the wild.
 
-## Phase 4 — The fighter
+## Phase 4 — Controllers & input
+
+> **Goal:** keyboard, standard gamepads, and a native GameCube adapter all map
+> to the same `Input`.
+> **Proves:** the input-source abstraction holds and analog fidelity survives
+> quantization — without ever touching determinism.
+
+- [ ] Input-source abstraction in `pf_app` (platform layer only; keyboard already wired).
+- [ ] Standard gamepads: `gilrs` on native, the Gamepad API on web.
+- [ ] Native GameCube adapter (WUP-028): USB-HID via `hidapi`/`rusb` on native, WebHID in the browser.
+- [ ] Analog calibration: deadzones, notch/edge clamping, deterministic quantization to the `i8` stick fields.
+- [ ] Per-player binding + hotplug.
+
+## Phase 5 — The fighter
 
 > **Goal:** real Melee-style combat.
 > **Proves:** the actual game feel. *(The long phase.)*
@@ -58,15 +77,16 @@ projects — building a deep game on an unproven foundation.
 - [ ] Knockback, hitstun, DI, hitlag.
 - [ ] First playable character + stage.
 
-## Phase 5 — Content & tooling
+## Phase 6 — Content & tooling
 
 > **Goal:** fast iteration for design.
 
 - [ ] Character / stage data formats.
 - [ ] Animation pipeline.
 - [ ] Debug tools: hitbox viewer, frame-step, input display.
+- [ ] Replay viewer: load an input-stream replay, scrub + frame-step, and validate playback against the recorded checksums.
 
-## Phase 6 — Ship everywhere
+## Phase 7 — Ship everywhere
 
 > **Goal:** all platforms + matchmaking.
 
@@ -81,4 +101,4 @@ projects — building a deep game on an unproven foundation.
     You don't need all of Rust up front. Front-load ownership/borrowing,
     `struct`/`enum` + pattern matching (your state machines *are* enums), traits
     (GGRS uses them), and `Result`/`Option`. Defer async, advanced lifetimes,
-    and `unsafe`. Phases 0–1 are the on-ramp; by Phase 4 you'll be fluent.
+    and `unsafe`. Phases 0–1 are the on-ramp; by Phase 5 you'll be fluent.

@@ -103,3 +103,33 @@ pub struct Input {
     pub cstick_y: i8,
 }
 ```
+
+## Input sources
+
+Where that `Input` *comes from* is the platform layer's job, not the sim's. Every
+source — keyboard, a standard gamepad ([`gilrs`](https://github.com/gabomdq/gilrs)
+on native, the [Gamepad API](https://developer.mozilla.org/docs/Web/API/Gamepad_API)
+on web), or a **native GameCube adapter** (the WUP-028, read over USB-HID natively
+and via [WebHID](https://developer.mozilla.org/docs/Web/API/WebHID_API) in the
+browser) — lives entirely in `pf_app` and is reduced to the same quantized `Input`
+before a single tick runs. Analog calibration (deadzones, notch/edge clamping, the
+Melee-style coordinate feel) happens *here*, **before** quantization to the `i8`
+stick fields. Because only `Input` ever crosses into `pf_core`, no controller —
+however exotic — can affect determinism.
+
+## Replays — determinism's other dividend
+
+The same property that makes rollback cheap makes **replays nearly free**. Since
+the sim is a pure function of its inputs, a replay is just:
+
+```
+initial seed + match config + the per-frame input stream
+```
+
+Replay that stream through the identical deterministic `advance` and the match
+reproduces **bit-for-bit** — the [Slippi](https://slippi.gg) model. The files are
+tiny (a few bytes per frame, no game state), the per-frame `checksum()` already
+used for desync detection doubles as a playback validator, and a sim-version hash
+in the header guards against engine changes silently invalidating old replays.
+That makes replays a first-class tool for gameplay analysis, frame-stepping, and
+desync debugging — for the cost of writing the input stream to disk.
