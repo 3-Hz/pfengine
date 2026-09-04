@@ -86,6 +86,30 @@ flowchart LR
 | matchbox (WebRTC) | ✅ | ✅ | **Default — works everywhere** |
 | GGRS UDP | ✅ | ❌ | Optional native-only fast path |
 
+## Couch + online
+
+A session is a set of player handles, each **local** or **remote**. Two machines
+playing doubles register the same four handles from opposite sides:
+
+| Handle | Machine A | Machine B |
+| :---: | --- | --- |
+| 0, 1 | local | remote |
+| 2, 3 | remote | local |
+
+GGRS wants one input per *local* handle before each `advance_frame`; nothing
+else changes. Two things follow:
+
+- **Local play is the degenerate case** — every handle is local. That is why
+  `pf_app` runs local play through the session loop instead of stepping
+  `World` directly: netplay then only adds a transport.
+- **`MAX_NETPLAY_PLAYERS = 4` counts fighters, not machines.** Links run
+  between machines, so two machines with two players each is one link —
+  cheaper than four machines with one each. The cap exists because every peer
+  rolls back to the laggiest one and each rollback re-simulates every fighter.
+
+The slot binder in `pf_app` is told which slots are local, so a keyboard can
+never claim a remote fighter.
+
 ## What travels over the wire
 
 Only **inputs** — never game state. Each player's per-frame input is a tiny

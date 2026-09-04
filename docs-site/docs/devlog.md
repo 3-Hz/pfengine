@@ -14,15 +14,19 @@ A running record of decisions and progress. Newest entries first.
   across the stage; `advance(&[Input])` takes one input per fighter. Zero is a
   valid empty world; 100 works. This keeps a future "one player vs. 100 bots"
   mode open.
-- **Netplay caps at 4.** `pf_net::MAX_NETPLAY_PLAYERS` and
-  `check_netplay_players()` gate the Phase 3 P2P builder. Full-mesh rollback
-  past four players means N(N−1)/2 links and everyone rolling back to the
-  laggiest peer. SyncTest is local and now runs at 1, 2, 4, and 8 players.
+- **Netplay caps at 4 fighters.** `pf_net::MAX_NETPLAY_PLAYERS` and
+  `check_netplay_players()` gate the Phase 3 P2P builder. Every peer rolls
+  back to the laggiest one and each rollback re-simulates every fighter.
+  SyncTest is local and now runs at 1, 2, 4, and 8 players.
 - **Input sources + press-to-join.** `pf_app::input` has an `InputSource`
   trait, four keyboard layouts, and `Slots`: slots start empty, and pressing
   jump on any source claims the lowest free slot. Any source can drive any
   slot; gamepads plug in later with no new binding code.
   `cargo run -p pf_app -- --players 4`.
+- **Web build runs in a browser.** Phase 0's last box: the manual-copy web
+  build (see [Building everywhere](guide/builds.md)) loads, ticks, joins P1 on
+  Space, and moves on the arrows. The page still fetches macroquad's JS glue
+  from `not-fl3.github.io`; vendoring it is a follow-up.
 
 **Decision: the "no heap indirection" rule was over-broad.** It bundled a
 determinism rule (no hash-ordered containers) with a performance heuristic
@@ -32,8 +36,17 @@ one memcpy per snapshot — and GGRS already boxes every saved state in an
 [Deterministic core §4](architecture/deterministic-core.md#4-one-flat-serializable-world)
 now states the rule as meant.
 
+**Decision: couch + online.** A machine may own several of a session's
+handles — two machines playing doubles each register two handles as local and
+two as remote. GGRS supports this as-is (one `add_local_input` per local
+handle). So the Phase 2 session is built around a set of local handles, with
+local play as the all-local case, and the slot binder must know which slots
+are local. The cap counts fighters, not machines; links run between machines,
+so 2×2 is one link. See
+[Rollback — couch + online](architecture/rollback.md#couch-online).
+
 **Next:** wire `pf_net` into the live app so local play runs through a GGRS
-session (Phase 2).
+session built around local handles (Phase 2).
 
 ## 2026-06-07 — Phase 0 scaffold complete
 

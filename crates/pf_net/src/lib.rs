@@ -12,8 +12,10 @@ use std::fmt;
 use ggrs::{Config, GgrsError, GgrsRequest, SessionBuilder};
 use pf_core::{buttons, Input, World};
 
-/// The most players a netplay session accepts. Full-mesh rollback degrades
-/// past this: N(N−1)/2 links, and every peer rolls back to the laggiest one.
+/// The most fighters a netplay session accepts, counted across all machines;
+/// with couch + online one machine may own several. Every peer rolls back to
+/// the laggiest one and each rollback re-simulates every fighter, so the cap
+/// bounds both. Links run between machines, not fighters.
 pub const MAX_NETPLAY_PLAYERS: usize = 4;
 
 /// A netplay session asked for more players than [`MAX_NETPLAY_PLAYERS`].
