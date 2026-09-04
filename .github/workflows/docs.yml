@@ -22,8 +22,14 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/configure-pages@v6
       - uses: actions/checkout@v6
+      # `enablement` turns Pages on for the repo the first time this runs, so
+      # the deploy does not need a manual visit to Settings -> Pages. Without
+      # it the action 404s ("Get Pages site failed") until someone flips the
+      # setting by hand.
+      - uses: actions/configure-pages@v6
+        with:
+          enablement: true
       - uses: actions/setup-python@v6
         with:
           python-version: 3.x
