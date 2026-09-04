@@ -22,9 +22,9 @@ netcode**, built in Rust.
 # Determinism gate (must stay green):
 cargo test -p pf_net
 
-# Run the Phase 0 demo on desktop:
-cargo run -p pf_app
-#   P1: ← → move, Space jump      P2: A D move, W jump
+# Run the demo on desktop (any player count; press jump on a layout to join):
+cargo run -p pf_app -- --players 4
+#   Arrows + Space    A D + W    J L + I    Numpad 4 6 + 8
 
 # Build for the web:
 cargo build -p pf_app --target wasm32-unknown-unknown
@@ -36,6 +36,6 @@ cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/
 ## Status
 
 **Phase 0 complete** — workspace scaffolded, deterministic core + SyncTest green,
-a runnable window on desktop and a compiling web build. See the
-[roadmap](docs-site/docs/roadmap.md) for what's next (rollback netplay → the
-fighter mechanics).
+a runnable window on desktop and a compiling web build. Any number of local
+players; netplay will cap at 4. See the [roadmap](docs-site/docs/roadmap.md)
+for what's next (rollback netplay → the fighter mechanics).

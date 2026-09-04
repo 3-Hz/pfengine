@@ -34,11 +34,14 @@ pub struct Stage {
     pub right: Fx,
 }
 
-/// The entire game state. Cloning this is the rollback snapshot mechanism, so it
-/// is kept flat and free of heap indirection.
+/// The entire game state. `Clone` is the rollback snapshot, so the state stays
+/// contiguous `Copy` data: a `Vec<Fighter>` is one allocation and one memcpy.
+/// What to avoid is hash-ordered containers (iteration order differs between
+/// peers → desync) and per-entity boxes (a clone becomes N mallocs and N cache
+/// misses).
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct World {
-    pub players: [Fighter; 2],
+    pub players: Vec<Fighter>,
     pub stage: Stage,
     pub frame: u32,
     pub rng: Rng,
@@ -46,26 +49,35 @@ pub struct World {
 
 impl Default for World {
     fn default() -> Self {
-        Self::new()
+        Self::new(2)
     }
 }
 
 impl World {
-    /// The initial state: two fighters standing on a flat stage.
-    pub fn new() -> Self {
+    /// The initial state: `num_players` fighters spread evenly across a flat
+    /// stage, each facing the center. Zero players is a valid, empty world.
+    pub fn new(num_players: usize) -> Self {
         let stage = Stage {
             floor_y: Fx::from_num(0),
             left: Fx::from_num(-200),
             right: Fx::from_num(200),
         };
-        let fighter = |x: i32, facing_right: bool| Fighter {
-            pos: V2::new(Fx::from_num(x), stage.floor_y),
-            vel: V2::ZERO,
-            state: ActionState::Idle,
-            facing_right,
-        };
+        // Divide before multiplying: `width * (n + 1)` overflows I16F16 past
+        // ~80 players.
+        let step = (stage.right - stage.left) / Fx::from_num(num_players as i32 + 1);
+        let players = (0..num_players)
+            .map(|i| {
+                let x = stage.left + step * Fx::from_num(i as i32 + 1);
+                Fighter {
+                    pos: V2::new(x, stage.floor_y),
+                    vel: V2::ZERO,
+                    state: ActionState::Idle,
+                    facing_right: x <= Fx::ZERO,
+                }
+            })
+            .collect();
         World {
-            players: [fighter(-60, true), fighter(60, false)],
+            players,
             stage,
             frame: 0,
             rng: Rng::new(0x9E37_79B9_7F4A_7C15),
@@ -73,10 +85,19 @@ impl World {
     }
 
     /// Advance the simulation by exactly one 60 Hz tick. **Pure function** of the
-    /// current state and the given inputs.
-    pub fn advance(&mut self, inputs: [Input; 2]) {
-        for i in 0..self.players.len() {
-            systems::step_fighter(&mut self.players[i], inputs[i], &self.stage);
+    /// current state and the given inputs, one per fighter.
+    ///
+    /// # Panics
+    /// If `inputs.len() != self.players.len()` — a contract bug, not a runtime
+    /// condition; `zip` would otherwise truncate silently.
+    pub fn advance(&mut self, inputs: &[Input]) {
+        assert_eq!(
+            inputs.len(),
+            self.players.len(),
+            "advance needs exactly one Input per fighter"
+        );
+        for (fighter, &input) in self.players.iter_mut().zip(inputs) {
+            systems::step_fighter(fighter, input, &self.stage);
         }
         // Keep the RNG evolving as part of the state so it participates in the
         // checksum even before any system consumes it.
@@ -89,6 +110,7 @@ impl World {
     pub fn checksum(&self) -> u128 {
         const OFFSET: u128 = 0x6c62_272e_07bb_0142_62b8_2175_6295_c58d;
         let mut h = OFFSET;
+        fnv1a(&mut h, &(self.players.len() as u32).to_le_bytes());
         for p in &self.players {
             fnv1a(&mut h, &p.pos.x.to_bits().to_le_bytes());
             fnv1a(&mut h, &p.pos.y.to_bits().to_le_bytes());
@@ -110,5 +132,59 @@ fn fnv1a(h: &mut u128, bytes: &[u8]) {
     for &b in bytes {
         *h ^= b as u128;
         *h = h.wrapping_mul(PRIME);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn all_on_stage(w: &World) -> bool {
+        w.players.iter().all(|f| {
+            f.pos.x >= w.stage.left && f.pos.x <= w.stage.right && f.pos.y == w.stage.floor_y
+        })
+    }
+
+    #[test]
+    fn new_spawns_requested_number_of_fighters_on_stage() {
+        for n in [0, 1, 4, 100] {
+            let w = World::new(n);
+            assert_eq!(w.players.len(), n, "n = {n}");
+            assert!(all_on_stage(&w), "n = {n}");
+        }
+    }
+
+    #[test]
+    fn fighters_face_the_center() {
+        let w = World::new(4);
+        assert!(w.players[0].facing_right);
+        assert!(w.players[1].facing_right);
+        assert!(!w.players[2].facing_right);
+        assert!(!w.players[3].facing_right);
+    }
+
+    #[test]
+    #[should_panic]
+    fn advance_rejects_wrong_input_count() {
+        let mut w = World::new(2);
+        w.advance(&[Input::default()]);
+    }
+
+    #[test]
+    fn advance_steps_every_fighter() {
+        let mut w = World::new(3);
+        let right = Input {
+            stick_x: 127,
+            ..Input::default()
+        };
+        w.advance(&[right; 3]);
+        for (i, f) in w.players.iter().enumerate() {
+            assert!(f.vel.x > Fx::ZERO, "fighter {i} did not move");
+        }
+    }
+
+    #[test]
+    fn checksum_differs_by_player_count() {
+        assert_ne!(World::new(2).checksum(), World::new(3).checksum());
     }
 }
