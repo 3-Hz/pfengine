@@ -5,6 +5,8 @@
 
 pub mod rng;
 
+use std::ops::{Add, Sub};
+
 pub use fixed::types::I16F16;
 
 /// The engine-wide fixed-point scalar: 16 integer bits, 16 fractional bits.
@@ -28,28 +30,36 @@ impl V2 {
         Self { x, y }
     }
 
-    #[inline]
-    pub fn add(self, o: V2) -> V2 {
-        V2 {
-            x: self.x + o.x,
-            y: self.y + o.y,
-        }
-    }
-
-    #[inline]
-    pub fn sub(self, o: V2) -> V2 {
-        V2 {
-            x: self.x - o.x,
-            y: self.y - o.y,
-        }
-    }
-
     /// Scale both components by a fixed-point factor.
     #[inline]
     pub fn scale(self, s: Fx) -> V2 {
         V2 {
             x: self.x * s,
             y: self.y * s,
+        }
+    }
+}
+
+impl Add for V2 {
+    type Output = V2;
+
+    #[inline]
+    fn add(self, o: V2) -> V2 {
+        V2 {
+            x: self.x + o.x,
+            y: self.y + o.y,
+        }
+    }
+}
+
+impl Sub for V2 {
+    type Output = V2;
+
+    #[inline]
+    fn sub(self, o: V2) -> V2 {
+        V2 {
+            x: self.x - o.x,
+            y: self.y - o.y,
         }
     }
 }

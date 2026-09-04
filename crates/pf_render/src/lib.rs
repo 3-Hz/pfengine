@@ -11,7 +11,13 @@ use pf_core::World;
 
 const FIGHTER_W: f32 = 30.0;
 const FIGHTER_H: f32 = 50.0;
-const FIGHTER_COLORS: [Color; 2] = [SKYBLUE, RED];
+/// Per-slot fighter colors; slots past the end wrap around.
+const PALETTE: [Color; 8] = [SKYBLUE, RED, LIME, GOLD, VIOLET, ORANGE, PINK, WHITE];
+
+/// The color for player slot `slot`, wrapping past the palette.
+pub fn color_for(slot: usize) -> Color {
+    PALETTE[slot % PALETTE.len()]
+}
 
 /// Map simulation coordinates (origin near center, +y up) to screen pixels
 /// (origin top-left, +y down).
@@ -38,9 +44,7 @@ pub fn draw_world(curr: &World, prev: &World, alpha: f32) {
     draw_line(lx, ly, rx, ly, 4.0, GRAY);
 
     // Fighters.
-    for i in 0..curr.players.len() {
-        let c = &curr.players[i];
-        let p = &prev.players[i];
+    for (i, (c, p)) in curr.players.iter().zip(&prev.players).enumerate() {
         let x = lerp(p.pos.x.to_num::<f32>(), c.pos.x.to_num::<f32>(), alpha);
         let y = lerp(p.pos.y.to_num::<f32>(), c.pos.y.to_num::<f32>(), alpha);
         let (sx, sy) = to_screen(x, y);
@@ -49,7 +53,34 @@ pub fn draw_world(curr: &World, prev: &World, alpha: f32) {
             sy - FIGHTER_H,
             FIGHTER_W,
             FIGHTER_H,
-            FIGHTER_COLORS[i],
+            color_for(i),
         );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn color_for_wraps_past_the_palette() {
+        assert_eq!(color_for(PALETTE.len()), color_for(0));
+        assert_eq!(color_for(PALETTE.len() + 3), color_for(3));
+    }
+
+    #[test]
+    fn color_for_any_slot_does_not_panic() {
+        for slot in 0..100 {
+            let _ = color_for(slot);
+        }
+    }
+
+    #[test]
+    fn palette_colors_are_distinct() {
+        for (i, a) in PALETTE.iter().enumerate() {
+            for b in &PALETTE[i + 1..] {
+                assert_ne!(a, b);
+            }
+        }
     }
 }

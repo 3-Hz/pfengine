@@ -32,6 +32,8 @@ projects — building a deep game on an unproven foundation.
 - [x] Fixed-timestep loop; flat `World` state.
 - [x] One capsule: gravity, ground collision, movement.
 - [x] Render with interpolation (macroquad to start).
+- [x] Any number of fighters (`Vec<Fighter>`); netplay caps at
+      `MAX_NETPLAY_PLAYERS = 4` in `pf_net`.
 
 ## Phase 2 — Rollback integration
 
@@ -40,9 +42,8 @@ projects — building a deep game on an unproven foundation.
 
 - [x] Wrap `World` behind a GGRS `Config`.
 - [x] `cargo test` runs SyncTest and stays green. :material-shield-check:
-- [ ] Local two-player on one machine — `pf_app` polls two keyboard players
-      today, but steps `World` directly; it doesn't yet run through a GGRS
-      session.
+- [ ] Local multiplayer on one machine — `pf_app` runs N local players today,
+      but steps `World` directly; it doesn't yet run through a GGRS session.
 - [ ] Replay recording: initial seed + config + per-frame input stream, with periodic checksums. (Foundation for the Phase 6 viewer.)
 
 ## Phase 3 — Real netplay
@@ -50,7 +51,7 @@ projects — building a deep game on an unproven foundation.
 > **Goal:** two instances playing across a network.
 > **Proves:** rollback works online.
 
-- [ ] matchbox WebRTC transport + signaling.
+- [ ] matchbox WebRTC transport + signaling (≤ 4 players).
 - [ ] Tunable input delay / prediction window.
 - [ ] Desync detection via checksums in the wild.
 
@@ -61,11 +62,12 @@ projects — building a deep game on an unproven foundation.
 > **Proves:** the input-source abstraction holds and analog fidelity survives
 > quantization — without ever touching determinism.
 
-- [ ] Input-source abstraction in `pf_app` (platform layer only; keyboard already wired).
+- [x] Input-source abstraction in `pf_app` (platform layer only; four keyboard layouts wired).
 - [ ] Standard gamepads: `gilrs` on native, the Gamepad API on web.
 - [ ] Native GameCube adapter (WUP-028): USB-HID via `hidapi`/`rusb` on native, WebHID in the browser.
 - [ ] Analog calibration: deadzones, notch/edge clamping, deterministic quantization to the `i8` stick fields.
-- [ ] Per-player binding + hotplug.
+- [x] Per-player binding: any source claims any free slot by pressing jump.
+- [ ] Hotplug.
 
 ## Phase 5 — The fighter
 

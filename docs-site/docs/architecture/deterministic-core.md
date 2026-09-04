@@ -72,13 +72,21 @@ impl Rng {
 ## 4. One flat, serializable world
 
 Rollback clones the entire state several times per second, so it must be cheap
-to copy. Prefer fixed-size arrays and struct-of-arrays over `HashMap`s and heap
-indirection.
+to copy. Keep it contiguous `Copy` data: a `Vec<Fighter>` is one allocation and
+one memcpy. Two things break that:
 
-```rust title="pf_core/world/mod.rs"
+- **Hash-ordered containers** (`HashMap`, `HashSet`): iteration order differs
+  between peers, so the same inputs produce different results — a desync.
+- **Per-entity boxes** (`Vec<Box<_>>`, `Rc` graphs, linked lists): a clone
+  becomes N mallocs and N cache misses.
+
+One heap allocation per snapshot is fine; GGRS already stores every saved state
+behind an `Arc<Mutex<_>>`.
+
+```rust title="pf_core/src/world.rs"
 #[derive(Clone)] // (1)!
 pub struct World {
-    pub players: [Fighter; 2],
+    pub players: Vec<Fighter>,
     pub stage: Stage,
     pub frame: u32,
     pub rng: Rng,
@@ -86,13 +94,13 @@ pub struct World {
 
 impl World {
     /// The pure update. This is the entire simulation.
-    pub fn advance(&mut self, inputs: [Input; 2]) {
+    pub fn advance(&mut self, inputs: &[Input]) { // (2)!
         /* ... */
         self.frame += 1;
     }
 
     /// Hash of the full state — used for desync detection and SyncTest.
-    pub fn checksum(&self) -> u64 {
+    pub fn checksum(&self) -> u128 {
         /* ... */
         0
     }
@@ -101,6 +109,9 @@ impl World {
 
 1.  `#[derive(Clone)]` *is* the rollback snapshot mechanism. Keep this type POD
     enough that cloning it is a cheap `memcpy`-like operation.
+2.  One `Input` per fighter. Local play allows any number; netplay caps at
+    `pf_net::MAX_NETPLAY_PLAYERS` (4) because full-mesh rollback degrades past
+    that.
 
 The `checksum()` is what turns "mysterious desync three weeks from now" into a
 test failure on the exact frame — see [Rollback netcode](rollback.md).

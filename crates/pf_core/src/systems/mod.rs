@@ -45,7 +45,7 @@ pub fn step_fighter(f: &mut Fighter, input: Input, stage: &Stage) {
     }
 
     // 4. Integrate.
-    f.pos = f.pos.add(f.vel);
+    f.pos = f.pos + f.vel;
 
     // 5. Collision against the stage.
     if f.pos.y < stage.floor_y {
