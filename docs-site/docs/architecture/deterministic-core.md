@@ -19,7 +19,7 @@ Start with `I16F16` (32-bit: ~±32k range with 1/65536 precision — plenty for
 screen-space physics), and move to 64-bit `I32F32` only if a subsystem needs
 more headroom.
 
-```rust title="pf_core/math/vec.rs"
+```rust title="pf_core/src/math/mod.rs"
 use fixed::types::I16F16;
 
 pub type Fx = I16F16; // (1)!
@@ -54,7 +54,7 @@ No `rand::thread_rng()`, no OS entropy. A tiny PRNG (xorshift / PCG) seeded from
 **sim state** and advanced inside the simulation, so every machine draws the
 same sequence.
 
-```rust title="pf_core/math/rng.rs"
+```rust title="pf_core/src/math/rng.rs"
 #[derive(Clone, Copy)]
 pub struct Rng(u64); // part of the world state, advanced only inside update()
 

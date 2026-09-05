@@ -6,8 +6,9 @@
 /docs-site/site
 .venv
 
-# Claude Code per-user local settings
+# Per-user local settings for Claude Code and Codex
 .claude/settings.local.json
+/.codex/
 
 # OS / editor
 .DS_Store

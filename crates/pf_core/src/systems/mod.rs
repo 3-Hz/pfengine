@@ -4,7 +4,7 @@
 //! deterministic and so later layers can override earlier ones (which is how
 //! emergent techniques arise). Phase 0 implements a minimal slice of this:
 //! input → horizontal velocity → jump → gravity → integrate → collision →
-//! resolve. Combat layers (hitboxes, knockback, hitstun) arrive in Phase 4.
+//! resolve. Combat layers (hitboxes, knockback, hitstun) arrive in Phase 5.
 
 use crate::input::{buttons, Input};
 use crate::math::Fx;

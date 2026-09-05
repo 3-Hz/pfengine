@@ -1,11 +1,14 @@
 # pfengine
 
+[![Rust](https://github.com/3-Hz/pfengine/actions/workflows/rust.yml/badge.svg)](https://github.com/3-Hz/pfengine/actions/workflows/rust.yml)
+
 A platform-agnostic [platform fighter](docs-site/docs/index.md) engine
 (Melee-like) with **deterministic fixed-point simulation** and **rollback
 netcode**, built in Rust.
 
-> Full design docs live in `docs-site/` (a [Zensical](https://zensical.org)
-> site). Run `zensical serve` from `docs-site/` to read them locally.
+> Full design docs: <https://3-hz.github.io/pfengine/>. Source in `docs-site/`
+> (a [Zensical](https://zensical.org) site); `zensical serve` there previews
+> it locally.
 
 ## Workspace
 
@@ -35,7 +38,10 @@ cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/
 
 ## Status
 
-**Phase 0 complete** — workspace scaffolded, deterministic core + SyncTest green,
-a runnable window on desktop and a compiling web build. Any number of local
-players; netplay will cap at 4. See the [roadmap](docs-site/docs/roadmap.md)
-for what's next (rollback netplay → the fighter mechanics).
+**Phases 0–1 complete** (LUT trig deferred until knockback needs angles):
+deterministic fixed-point core, SyncTest green in CI, and a local N-player demo
+that runs on desktop and in the browser. Netplay will cap at 4 fighters.
+
+**Next (Phase 2):** run local play through a GGRS session built around local
+handles, so netplay later adds only a transport. See the
+[roadmap](docs-site/docs/roadmap.md).

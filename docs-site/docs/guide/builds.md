@@ -113,5 +113,5 @@ zensical serve        # live preview at http://localhost:8000
 zensical build        # static output to docs-site/site/
 ```
 
-The generated `.github/workflows/docs.yml` deploys it to GitHub Pages on every
-push to `main`/`master`.
+`.github/workflows/docs.yml` deploys it to <https://3-hz.github.io/pfengine/>
+on every push to `main` that touches `docs-site/`.

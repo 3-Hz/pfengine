@@ -74,5 +74,6 @@ That one requirement cascades into three hard constraints:
 !!! note "Status"
 
     This site documents the **design** as it is decided and the **development**
-    as it happens. The engine itself is at the scaffolding stage — see the
-    [Dev log](devlog.md) for the running record of decisions.
+    as it happens. The engine today is a deterministic core and a local
+    N-player demo on desktop and web; rollback is tested but not yet wired
+    into the app. See the [Dev log](devlog.md) for the running record.
