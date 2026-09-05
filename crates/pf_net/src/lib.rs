@@ -13,6 +13,10 @@ use std::fmt;
 use ggrs::{Config, GgrsError, GgrsRequest, SessionBuilder};
 use pf_core::{buttons, Input, World};
 
+pub mod session;
+
+pub use session::{Advanced, PlayerHandle, Session, SessionError};
+
 /// The most machines a netplay session accepts, counting this one. Fighters
 /// are uncapped: a machine may own several handles (couch + online). Links
 /// and prediction cost scale with machines; re-simulation cost scales with
