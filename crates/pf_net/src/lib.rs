@@ -1,10 +1,11 @@
 //! Rollback netcode wiring (GGRS) and the determinism gate.
 //!
-//! Phase 0 ships the GGRS [`Config`] and a [`run_synctest`] harness. SyncTest
-//! re-simulates past frames every tick and compares checksums, so it fails fast
-//! the moment the simulation stops being bit-deterministic. Real P2P transport
-//! (matchbox / WebRTC) arrives in Phase 3 and is capped at
-//! [`MAX_NETPLAY_PLAYERS`]; local play is not.
+//! [`Session`] is what `pf_app` runs every tick through; local play is the
+//! all-local case of it. [`run_synctest`] is the CI gate: SyncTest
+//! re-simulates past frames every tick and compares checksums, so it fails
+//! fast the moment the simulation stops being bit-deterministic. Real P2P
+//! transport (matchbox / WebRTC) arrives in Phase 3 and is capped at
+//! [`MAX_NETPLAY_MACHINES`] machines; fighters are not capped.
 
 use std::error::Error;
 use std::fmt;
@@ -12,37 +13,38 @@ use std::fmt;
 use ggrs::{Config, GgrsError, GgrsRequest, SessionBuilder};
 use pf_core::{buttons, Input, World};
 
-/// The most fighters a netplay session accepts, counted across all machines;
-/// with couch + online one machine may own several. Every peer rolls back to
-/// the laggiest one and each rollback re-simulates every fighter, so the cap
-/// bounds both. Links run between machines, not fighters.
-pub const MAX_NETPLAY_PLAYERS: usize = 4;
+/// The most machines a netplay session accepts, counting this one. Fighters
+/// are uncapped: a machine may own several handles (couch + online). Links
+/// and prediction cost scale with machines; re-simulation cost scales with
+/// fighters and stays cheap until Phase 5 adds real mechanics.
+pub const MAX_NETPLAY_MACHINES: usize = 4;
 
-/// A netplay session asked for more players than [`MAX_NETPLAY_PLAYERS`].
+/// A netplay session asked for more machines than [`MAX_NETPLAY_MACHINES`].
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct TooManyPlayers {
+pub struct TooManyMachines {
     pub requested: usize,
     pub max: usize,
 }
 
-impl fmt::Display for TooManyPlayers {
+impl fmt::Display for TooManyMachines {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "netplay supports at most {} players, got {}",
+            "netplay supports at most {} machines, got {}",
             self.max, self.requested
         )
     }
 }
 
-impl Error for TooManyPlayers {}
+impl Error for TooManyMachines {}
 
-/// Gate for the P2P session builder (Phase 3). SyncTest is local and skips it.
-pub fn check_netplay_players(num_players: usize) -> Result<(), TooManyPlayers> {
-    if num_players > MAX_NETPLAY_PLAYERS {
-        return Err(TooManyPlayers {
-            requested: num_players,
-            max: MAX_NETPLAY_PLAYERS,
+/// Gate for the Phase 3 P2P constructor. `num_machines` is the distinct peer
+/// addresses plus this machine. Local sessions and SyncTest have no cap.
+pub fn check_netplay_machines(num_machines: usize) -> Result<(), TooManyMachines> {
+    if num_machines > MAX_NETPLAY_MACHINES {
+        return Err(TooManyMachines {
+            requested: num_machines,
+            max: MAX_NETPLAY_MACHINES,
         });
     }
     Ok(())
@@ -128,20 +130,20 @@ mod tests {
     }
 
     #[test]
-    fn netplay_allows_up_to_max_players() {
-        for n in 1..=MAX_NETPLAY_PLAYERS {
-            assert!(check_netplay_players(n).is_ok(), "n = {n}");
+    fn netplay_allows_up_to_max_machines() {
+        for n in 1..=MAX_NETPLAY_MACHINES {
+            assert!(check_netplay_machines(n).is_ok(), "n = {n}");
         }
     }
 
     #[test]
-    fn netplay_rejects_more_than_max_players() {
-        let requested = MAX_NETPLAY_PLAYERS + 1;
+    fn netplay_rejects_more_than_max_machines() {
+        let requested = MAX_NETPLAY_MACHINES + 1;
         assert_eq!(
-            check_netplay_players(requested),
-            Err(TooManyPlayers {
+            check_netplay_machines(requested),
+            Err(TooManyMachines {
                 requested,
-                max: MAX_NETPLAY_PLAYERS
+                max: MAX_NETPLAY_MACHINES
             })
         );
     }
