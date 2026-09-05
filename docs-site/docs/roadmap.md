@@ -34,8 +34,8 @@ projects — building a deep game on an unproven foundation.
 - [x] Fixed-timestep loop; flat `World` state.
 - [x] One capsule: gravity, ground collision, movement.
 - [x] Render with interpolation (macroquad to start).
-- [x] Any number of fighters (`Vec<Fighter>`); netplay caps at
-      `MAX_NETPLAY_PLAYERS = 4` in `pf_net`.
+- [x] Any number of fighters (`Vec<Fighter>`). Netplay caps machines, not
+      fighters: `MAX_NETPLAY_MACHINES = 4` in `pf_net`.
 
 ## Phase 2 — Rollback integration
 
@@ -44,10 +44,9 @@ projects — building a deep game on an unproven foundation.
 
 - [x] Wrap `World` behind a GGRS `Config`.
 - [x] `cargo test` runs SyncTest and stays green. :material-shield-check:
-- [ ] Local multiplayer through a GGRS session — `pf_app` runs N local players
-      today but steps `World` directly. Build the session around a set of
-      *local handles*: local play is the case where every handle is local, and
-      the same loop later carries couch + online.
+- [x] Local multiplayer through a GGRS session, built around a set of *local
+      handles*: local play is the case where every handle is local, and the
+      same loop later carries couch + online.
 - [ ] Replay recording: initial seed + config + per-frame input stream, with periodic checksums. (Foundation for the Phase 6 viewer.)
 
 ## Phase 3 — Real netplay
@@ -55,10 +54,10 @@ projects — building a deep game on an unproven foundation.
 > **Goal:** two instances playing across a network.
 > **Proves:** rollback works online.
 
-- [ ] matchbox WebRTC transport + signaling (≤ 4 players).
+- [ ] matchbox WebRTC transport + signaling (≤ 4 machines).
 - [ ] Couch + online: several local players per machine in one session. The
-      cap counts fighters, not machines; the slot binder claims only local
-      handles.
+      cap counts machines, not fighters; the slot binder already claims only
+      local handles.
 - [ ] Tunable input delay / prediction window.
 - [ ] Desync detection via checksums in the wild.
 

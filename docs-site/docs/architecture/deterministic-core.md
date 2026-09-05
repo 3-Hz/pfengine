@@ -109,9 +109,8 @@ impl World {
 
 1.  `#[derive(Clone)]` *is* the rollback snapshot mechanism. Keep this type POD
     enough that cloning it is a cheap `memcpy`-like operation.
-2.  One `Input` per fighter. Local play allows any number; netplay caps at
-    `pf_net::MAX_NETPLAY_PLAYERS` (4) because full-mesh rollback degrades past
-    that.
+2.  One `Input` per fighter, any number of them. Netplay caps machines
+    (`pf_net::MAX_NETPLAY_MACHINES`, 4), not fighters.
 
 The `checksum()` is what turns "mysterious desync three weeks from now" into a
 test failure on the exact frame — see [Rollback netcode](rollback.md).
@@ -127,7 +126,7 @@ let mut acc = Duration::ZERO;
 loop {
     acc += frame_time();          // real wall-clock delta (presentation only)
     while acc >= TICK {
-        world.advance(poll_inputs());
+        session.advance(&mut world, poll_inputs()); // GGRS: save / load / advance
         acc -= TICK;
     }
     let alpha = acc.as_secs_f32() / TICK.as_secs_f32();

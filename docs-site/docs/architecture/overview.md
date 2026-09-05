@@ -62,7 +62,7 @@ pfengine/
     │   ├── world.rs          #   the serializable game state
     │   ├── systems/          #   physics, collision, mechanics
     │   └── input.rs          #   the per-player input struct
-    ├── pf_net/               # GGRS config + SyncTest gate (matchbox transport later)
+    ├── pf_net/               # GGRS session + SyncTest gate (matchbox transport later)
     ├── pf_render/            # macroquad today, wgpu + winit later; interpolation
     └── pf_app/               # desktop / web entry point, input sources, slot binding
 ```

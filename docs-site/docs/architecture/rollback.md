@@ -16,7 +16,7 @@ You implement its `Config` trait, then drive a session that hands you back
 *requests* to fulfill each frame: save the state, sometimes load (rewind), and
 advance.
 
-```rust title="pf_net — the rollback loop"
+```rust title="pf_net::Session::advance — the rollback loop"
 for request in session.advance_frame(/* local inputs */)? {
     match request {
         GgrsRequest::SaveGameState { cell, frame } => {
@@ -102,18 +102,16 @@ playing doubles register the same four handles from opposite sides:
 GGRS wants one input per *local* handle before each `advance_frame`; nothing
 else changes. Two things follow:
 
-- **Local play is the degenerate case** — every handle is local. So `pf_app`
-  will run local play through the session loop instead of stepping `World`
-  directly, and netplay then only adds a transport. Today it still steps
-  `World` directly; see
-  [Phase 2](../roadmap.md#phase-2-rollback-integration).
-- **`MAX_NETPLAY_PLAYERS = 4` counts fighters, not machines.** Links run
-  between machines, so two machines with two players each is one link —
-  cheaper than four machines with one each. The cap exists because every peer
-  rolls back to the laggiest one and each rollback re-simulates every fighter.
+- **Local play is the degenerate case** — every handle is local. That is why
+  `pf_app` runs local play through `pf_net::Session` instead of stepping
+  `World` directly: netplay then only adds a transport.
+- **`MAX_NETPLAY_MACHINES = 4` counts machines, not fighters.** Links run
+  between machines and every peer waits on the laggiest one, so the link
+  count is what the cap bounds. Re-simulation cost scales with fighters
+  instead and stays cheap until Phase 5; a fighter ceiling may return then.
 
-The slot binder in `pf_app` will be told which slots are local, so a keyboard
-can never claim a remote fighter.
+The slot binder in `pf_app` is told which slots are local, so a keyboard can
+never claim a remote fighter.
 
 ## What travels over the wire
 

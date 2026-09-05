@@ -64,6 +64,12 @@ lower crates stay fully portable.
         script at runtime. Delete the copied `.wasm` when you are done; it is
         not gitignored.
 
+        `index.html` also stubs, before calling `load()`, any function import
+        the glue does not provide, in any module. ggrs's wasm build carries a
+        few wasm-bindgen imports that are reached only with remote peers; the
+        stubs throw if called. The stubs and the manual copy both go when the
+        web build moves to Trunk.
+
     Web netplay uses [matchbox](../architecture/rollback.md#the-web-netplay-trap-and-the-fix)
     (WebRTC), since browsers can't open raw UDP sockets.
 
