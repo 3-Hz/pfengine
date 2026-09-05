@@ -24,6 +24,25 @@
          is missing six GL renderbuffer/blit entry points. -->
     <script src="mq_js_bundle.js"></script>
     <script>
+        // ggrs pulls js-sys in for wasm32, which leaves imports in modules the
+        // glue above does not supply (`__wbindgen_placeholder__`,
+        // `__wbindgen_externref_xform__`). They are reached only through the
+        // per-peer protocol, and there are no peers yet, so stub them rather
+        // than let instantiate() reject the module. This replaces the bundle's
+        // env-only stub pass; load() looks the function up by name at call
+        // time, so the vendored file is untouched. Goes away when Phase 3
+        // moves the web build to the wasm-bindgen pipeline.
+        add_missing_functions_stabs = function (module) {
+            for (const imp of WebAssembly.Module.imports(module)) {
+                if (imp.kind !== "function") continue;
+                importObject[imp.module] ??= {};
+                if (importObject[imp.module][imp.name] !== undefined) continue;
+                console.warn("No " + imp.module + "." + imp.name + " in the JS glue; stubbed");
+                importObject[imp.module][imp.name] = function () {
+                    throw new Error("stubbed import called: " + imp.module + "." + imp.name);
+                };
+            }
+        };
         load("pf_app.wasm"); // place the built wasm next to this file (see README)
     </script>
 </body>
