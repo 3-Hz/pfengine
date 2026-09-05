@@ -6,7 +6,7 @@ members = ["crates/*"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Ed Zhao"]
-repository = ""
+repository = "https://github.com/3-Hz/pfengine"
 
 # Shared dependency versions so all crates stay in lockstep.
 [workspace.dependencies]

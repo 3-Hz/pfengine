@@ -54,6 +54,9 @@ the exact offending frame.
     Wire `SyncTestSession` into CI before building any real mechanics. It turns
     "mysterious desync three weeks from now" into "this commit broke
     determinism." It is the single highest-leverage habit on this project.
+    `.github/workflows/rust.yml` does this: `cargo test --workspace` runs
+    `pf_net`'s SyncTest at 1, 2, 4, and 8 players on every push and pull
+    request.
 
 ```rust title="determinism test"
 let mut session = SessionBuilder::<Config>::new()
@@ -99,16 +102,18 @@ playing doubles register the same four handles from opposite sides:
 GGRS wants one input per *local* handle before each `advance_frame`; nothing
 else changes. Two things follow:
 
-- **Local play is the degenerate case** — every handle is local. That is why
-  `pf_app` runs local play through the session loop instead of stepping
-  `World` directly: netplay then only adds a transport.
+- **Local play is the degenerate case** — every handle is local. So `pf_app`
+  will run local play through the session loop instead of stepping `World`
+  directly, and netplay then only adds a transport. Today it still steps
+  `World` directly; see
+  [Phase 2](../roadmap.md#phase-2-rollback-integration).
 - **`MAX_NETPLAY_PLAYERS = 4` counts fighters, not machines.** Links run
   between machines, so two machines with two players each is one link —
   cheaper than four machines with one each. The cap exists because every peer
   rolls back to the laggiest one and each rollback re-simulates every fighter.
 
-The slot binder in `pf_app` is told which slots are local, so a keyboard can
-never claim a remote fighter.
+The slot binder in `pf_app` will be told which slots are local, so a keyboard
+can never claim a remote fighter.
 
 ## What travels over the wire
 
@@ -117,7 +122,7 @@ bit-packed struct (a few bytes). Because both sides run the identical
 deterministic simulation, identical inputs reproduce identical state. This is
 what keeps rollback bandwidth tiny and cheating harder.
 
-```rust title="pf_core/input/mod.rs"
+```rust title="pf_core/src/input.rs"
 #[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub struct Input {
     pub buttons: u16,  // bitflags: jump, attack, shield, grab, ...

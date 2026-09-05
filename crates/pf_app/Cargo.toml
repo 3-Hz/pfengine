@@ -9,5 +9,7 @@ authors.workspace = true
 pf_core.workspace = true
 pf_render.workspace = true
 macroquad.workspace = true
-# pf_net (rollback) is added back in Phase 3, alongside the matchbox WebRTC
-# transport and the wasm `getrandom` js-feature config it requires.
+# pf_net (rollback) returns in Phase 2, when local play runs through a GGRS
+# session. Its ggrs -> rand -> getrandom chain needs the `getrandom` js
+# feature on wasm, or the CI wasm build breaks. Phase 3 adds the matchbox
+# WebRTC transport.

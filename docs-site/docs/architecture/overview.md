@@ -57,14 +57,14 @@ determinism-breaking code *cannot compile* inside the core:
 pfengine/
 ├── Cargo.toml                # [workspace]
 └── crates/
-    ├── pf_core/              # deterministic sim — NO wgpu, NO std::time, NO f32
-    │   ├── math/             #   fixed-point Vec2, LUT trig, deterministic RNG
-    │   ├── world/            #   the serializable game state
+    ├── pf_core/src/          # deterministic sim — NO rendering, NO std::time, NO f32
+    │   ├── math/             #   fixed-point Fx + V2, deterministic RNG (LUT trig later)
+    │   ├── world.rs          #   the serializable game state
     │   ├── systems/          #   physics, collision, mechanics
-    │   └── input/            #   the per-player input struct
-    ├── pf_net/               # GGRS wiring + matchbox transport
-    ├── pf_render/            # wgpu + winit, interpolation, sprites
-    └── pf_app/               # desktop / web / mobile entry points
+    │   └── input.rs          #   the per-player input struct
+    ├── pf_net/               # GGRS config + SyncTest gate (matchbox transport later)
+    ├── pf_render/            # macroquad today, wgpu + winit later; interpolation
+    └── pf_app/               # desktop / web entry point, input sources, slot binding
 ```
 
 !!! info "Determinism wall"

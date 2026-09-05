@@ -15,7 +15,7 @@ Each fighter is an **action-state machine**, exactly like Melee's action-state
 IDs. A character is always in exactly one state, and states define what's
 possible.
 
-```rust title="pf_core/systems/state.rs"
+```rust title="ActionState (design sketch)"
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ActionState {
     Idle,

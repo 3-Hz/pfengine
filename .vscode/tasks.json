@@ -50,8 +50,16 @@
     {
       "label": "cargo: clippy",
       "type": "shell",
-      "command": "cargo clippy --workspace --all-targets",
+      "command": "cargo clippy --workspace --all-targets -- -D warnings",
       "problemMatcher": ["$rustc"]
+    },
+    {
+      // The same four gates as .github/workflows/rust.yml, in order.
+      "label": "ci: check (fmt, clippy, test, wasm)",
+      "type": "shell",
+      "command": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && cargo build -p pf_app --target wasm32-unknown-unknown",
+      "problemMatcher": ["$rustc"],
+      "group": "test"
     },
     {
       "label": "cargo: build wasm (pf_app)",

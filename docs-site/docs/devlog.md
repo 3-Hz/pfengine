@@ -25,8 +25,16 @@ A running record of decisions and progress. Newest entries first.
   `cargo run -p pf_app -- --players 4`.
 - **Web build runs in a browser.** Phase 0's last box: the manual-copy web
   build (see [Building everywhere](guide/builds.md)) loads, ticks, joins P1 on
-  Space, and moves on the arrows. The page still fetches macroquad's JS glue
-  from `not-fl3.github.io`; vendoring it is a follow-up.
+  Space, and moves on the arrows. `crates/pf_app/web/mq_js_bundle.js` is
+  macroquad's JS glue, vendored from the pinned crate so the page fetches no
+  third-party script. It carries one patch: a `var register_plugin`
+  declaration the upstream `quad_net` chunk still lacks.
+- **Rust CI.** `.github/workflows/rust.yml` runs `cargo fmt --check`, clippy
+  with `-D warnings`, `cargo test --workspace` (the SyncTest determinism
+  gate), and the `wasm32-unknown-unknown` build on every push to `main` and
+  every pull request. macroquad needs no apt packages on the Linux runner:
+  miniquad opens X11, GL, and ALSA with `dlopen` at runtime, so a headless
+  build links nothing.
 
 **Decision: the "no heap indirection" rule was over-broad.** It bundled a
 determinism rule (no hash-ordered containers) with a performance heuristic
