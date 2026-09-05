@@ -66,11 +66,15 @@ pub fn keyboard_sources() -> Vec<Box<dyn InputSource>> {
 }
 
 /// Maps player slots to sources. Slots start empty; a source joins the lowest
-/// free slot by pressing jump, and that joining press is swallowed so it does
-/// not also jump.
+/// free *local* slot by pressing jump, and that joining press is swallowed so
+/// it does not also jump. Remote slots belong to another machine: they are
+/// never claimed here and always emit `Input::default()`, since their input
+/// arrives through the session.
 pub struct Slots {
     /// slot → source index
     source_of: Vec<Option<usize>>,
+    /// slot → driven from this machine?
+    local: Vec<bool>,
     /// Last tick's raw poll per source, for edge detection.
     prev: Vec<Input>,
     /// This tick's polls; kept to avoid allocating every tick.
@@ -80,9 +84,18 @@ pub struct Slots {
 }
 
 impl Slots {
-    pub fn new(num_players: usize) -> Self {
+    /// `local` lists the slots a source on this machine may claim.
+    ///
+    /// # Panics
+    /// If `local` names a slot at or past `num_players` — a contract bug.
+    pub fn new(num_players: usize, local: &[usize]) -> Self {
+        let mut is_local = vec![false; num_players];
+        for &slot in local {
+            is_local[slot] = true;
+        }
         Slots {
             source_of: vec![None; num_players],
+            local: is_local,
             prev: Vec::new(),
             cur: Vec::new(),
             joined: Vec::new(),
@@ -90,7 +103,7 @@ impl Slots {
     }
 
     /// Poll every source, join newly pressed unassigned ones, and write one
-    /// `Input` per slot into `out` (`default()` for empty slots).
+    /// `Input` per slot into `out` (`default()` for empty and remote slots).
     pub fn tick(&mut self, sources: &mut [Box<dyn InputSource>], out: &mut [Input]) {
         assert_eq!(
             out.len(),
@@ -110,7 +123,7 @@ impl Slots {
             if !edge || self.is_assigned(src) {
                 continue;
             }
-            if let Some(free) = self.source_of.iter().position(Option::is_none) {
+            if let Some(free) = self.lowest_free_local_slot() {
                 self.source_of[free] = Some(src);
                 self.joined[src] = true;
             }
@@ -131,8 +144,21 @@ impl Slots {
         self.source_of[slot]
     }
 
+    /// Whether `slot` is driven from this machine.
+    #[allow(dead_code)]
+    pub fn is_local(&self, slot: usize) -> bool {
+        self.local[slot]
+    }
+
     fn is_assigned(&self, src: usize) -> bool {
         self.source_of.contains(&Some(src))
+    }
+
+    fn lowest_free_local_slot(&self) -> Option<usize> {
+        self.source_of
+            .iter()
+            .zip(&self.local)
+            .position(|(taken, &local)| local && taken.is_none())
     }
 }
 
@@ -183,10 +209,15 @@ mod tests {
         (cells, sources)
     }
 
+    /// Every slot local, as local play has it.
+    fn all_local(n: usize) -> Vec<usize> {
+        (0..n).collect()
+    }
+
     #[test]
     fn slots_start_empty_and_emit_default_input() {
         let (_cells, mut sources) = rig(2);
-        let mut slots = Slots::new(2);
+        let mut slots = Slots::new(2, &all_local(2));
         let mut out = vec![walk(); 2]; // stale data must be overwritten
         slots.tick(&mut sources, &mut out);
         assert_eq!(slots.source_of(0), None);
@@ -197,7 +228,7 @@ mod tests {
     #[test]
     fn pressing_jump_joins_the_lowest_free_slot() {
         let (cells, mut sources) = rig(3);
-        let mut slots = Slots::new(2);
+        let mut slots = Slots::new(2, &all_local(2));
         let mut out = vec![Input::default(); 2];
         cells[2].set(jump()); // the *third* source joins first
         slots.tick(&mut sources, &mut out);
@@ -208,7 +239,7 @@ mod tests {
     #[test]
     fn the_joining_press_does_not_jump() {
         let (cells, mut sources) = rig(1);
-        let mut slots = Slots::new(1);
+        let mut slots = Slots::new(1, &all_local(1));
         let mut out = vec![Input::default(); 1];
         cells[0].set(jump());
         slots.tick(&mut sources, &mut out);
@@ -218,7 +249,7 @@ mod tests {
     #[test]
     fn an_assigned_source_drives_its_slot() {
         let (cells, mut sources) = rig(2);
-        let mut slots = Slots::new(2);
+        let mut slots = Slots::new(2, &all_local(2));
         let mut out = vec![Input::default(); 2];
         cells[1].set(jump());
         slots.tick(&mut sources, &mut out); // source 1 → slot 0
@@ -231,7 +262,7 @@ mod tests {
     #[test]
     fn holding_jump_is_not_a_second_join() {
         let (cells, mut sources) = rig(1);
-        let mut slots = Slots::new(2);
+        let mut slots = Slots::new(2, &all_local(2));
         let mut out = vec![Input::default(); 2];
         cells[0].set(jump());
         slots.tick(&mut sources, &mut out); // edge: joins slot 0
@@ -244,7 +275,7 @@ mod tests {
     #[test]
     fn an_assigned_source_cannot_claim_a_second_slot() {
         let (cells, mut sources) = rig(1);
-        let mut slots = Slots::new(2);
+        let mut slots = Slots::new(2, &all_local(2));
         let mut out = vec![Input::default(); 2];
         cells[0].set(jump());
         slots.tick(&mut sources, &mut out);
@@ -260,7 +291,7 @@ mod tests {
     #[test]
     fn a_full_roster_ignores_further_joins() {
         let (cells, mut sources) = rig(2);
-        let mut slots = Slots::new(1);
+        let mut slots = Slots::new(1, &all_local(1));
         let mut out = vec![Input::default(); 1];
         cells[0].set(jump());
         slots.tick(&mut sources, &mut out); // source 0 takes the only slot
@@ -271,6 +302,35 @@ mod tests {
         slots.tick(&mut sources, &mut out);
         assert_eq!(slots.source_of(0), Some(0));
         assert_eq!(out[0], Input::default()); // source 1's walk goes nowhere
+    }
+
+    #[test]
+    fn remote_slots_are_never_claimed() {
+        let (cells, mut sources) = rig(1);
+        let mut slots = Slots::new(2, &[1]); // slot 0 belongs to another machine
+        let mut out = vec![Input::default(); 2];
+        cells[0].set(jump());
+        slots.tick(&mut sources, &mut out);
+        assert!(!slots.is_local(0));
+        assert!(slots.is_local(1));
+        assert_eq!(slots.source_of(0), None);
+        assert_eq!(slots.source_of(1), Some(0));
+        assert_eq!(out[0], Input::default()); // a remote slot's input comes over the wire
+    }
+
+    #[test]
+    fn the_joiner_takes_the_lowest_free_local_slot() {
+        let (cells, mut sources) = rig(2);
+        let mut slots = Slots::new(3, &[0, 2]);
+        let mut out = vec![Input::default(); 3];
+        cells[0].set(jump());
+        slots.tick(&mut sources, &mut out); // source 0 -> slot 0
+        cells[0].set(Input::default());
+        cells[1].set(jump());
+        slots.tick(&mut sources, &mut out); // source 1 skips remote slot 1
+        assert_eq!(slots.source_of(0), Some(0));
+        assert_eq!(slots.source_of(1), None);
+        assert_eq!(slots.source_of(2), Some(1));
     }
 
     #[test]
