@@ -7,9 +7,11 @@ authors.workspace = true
 
 [dependencies]
 pf_core.workspace = true
+pf_net.workspace = true
 pf_render.workspace = true
 macroquad.workspace = true
-# pf_net (rollback) returns in Phase 2, when local play runs through a GGRS
-# session. Its ggrs -> rand -> getrandom chain needs the `getrandom` js
-# feature on wasm, or the CI wasm build breaks. Phase 3 adds the matchbox
-# WebRTC transport.
+
+# ggrs -> rand -> getrandom refuses wasm32-unknown-unknown unless told where
+# bytes come from. `custom` keeps wasm-bindgen out; see src/wasm_entropy.rs.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.2", features = ["custom"] }

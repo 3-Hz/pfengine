@@ -398,8 +398,10 @@ dependencies = [
 name = "pf_app"
 version = "0.0.0"
 dependencies = [
+ "getrandom",
  "macroquad",
  "pf_core",
+ "pf_net",
  "pf_render",
 ]
 

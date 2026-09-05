@@ -6,6 +6,8 @@
 //! layer (see [`input`]); the simulation only ever sees one [`Input`] per slot.
 
 mod input;
+#[cfg(target_arch = "wasm32")]
+mod wasm_entropy;
 
 use macroquad::prelude::*;
 use pf_core::{Input, World};
