@@ -17,8 +17,12 @@
 </head>
 <body>
     <canvas id="glcanvas" tabindex="1"></canvas>
-    <!-- macroquad's JS glue: provides the sapp_*/gl*/fs_* host functions. -->
-    <script src="https://not-fl3.github.io/miniquad-samples/mq_js_bundle.js"></script>
+    <!-- macroquad's JS glue: provides the sapp_*/gl*/fs_* host functions.
+         Vendored from the macroquad 0.4.15 crate (miniquad 0.4.10) — see the
+         header of mq_js_bundle.js. It replaced the copy on
+         not-fl3.github.io/miniquad-samples, which lags the pinned versions and
+         is missing six GL renderbuffer/blit entry points. -->
+    <script src="mq_js_bundle.js"></script>
     <script>
         load("pf_app.wasm"); // place the built wasm next to this file (see README)
     </script>
