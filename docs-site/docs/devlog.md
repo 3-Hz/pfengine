@@ -6,6 +6,40 @@ icon: lucide/notebook-pen
 
 A running record of decisions and progress. Newest entries first.
 
+## 2026-09-04 — Local play runs through GGRS
+
+`pf_app` no longer steps `World` directly. Every 60 Hz tick goes through
+`pf_net::Session`, which owns the GGRS P2P session and fulfils its save,
+load, and advance requests. Local play is the all-local case: every handle
+is local and the socket has no peers, so GGRS starts Running and never rolls
+back. Phase 3 adds a constructor that takes a transport; the loop does not
+change. `Slots` is told which slots are local and never claims a remote one.
+
+- **Same world, proven.** `local_session_matches_direct_stepping` runs 300
+  scripted frames through the session and through `World::advance` and
+  compares the worlds and checksums, at 1, 2, 4, and 8 players.
+- **The web build needed two fixes.** ggrs pulls in `rand`, whose
+  `getrandom` refuses `wasm32-unknown-unknown` unless told where bytes come
+  from; `pf_app` registers a non-crypto source (`wasm_entropy.rs`) through
+  the `custom` feature, keeping wasm-bindgen out. ggrs's `js-sys` dependency
+  still leaves seven wasm-bindgen imports in the binary, reached only through
+  the per-peer protocol, and macroquad's loader only stubs missing imports
+  under `env`. `index.html` now stubs missing function imports in any module;
+  the stubs throw if called, which is safe exactly while there are no peers.
+  Both go when Phase 3 moves the web build to the wasm-bindgen pipeline.
+
+**Decision: the netplay cap counts machines, not fighters.** At most four
+machines per session (`pf_net::MAX_NETPLAY_MACHINES`); fighters are
+uncapped. This reverses the fighter cap in the entry below. Links and
+prediction cost scale with machines; re-simulation cost scales with fighters,
+and the sim is cheap until Phase 5. A fighter ceiling may return once Phase 5
+shows the real cost. GGRS fixes the roster when a session starts, so which
+machine owns which handles is the lobby's decision, and handle numbers follow
+that split rather than join order.
+
+**Next:** replay recording — seed, config, the per-frame input stream, and
+periodic checksums (Phase 2).
+
 ## 2026-09-04 — N players locally, 4 over netplay
 
 `World` no longer hardcodes two fighters.

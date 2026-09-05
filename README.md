@@ -15,7 +15,7 @@ netcode**, built in Rust.
 | Crate | Role |
 | --- | --- |
 | `pf_core` | Deterministic simulation — fixed-point math, the serializable `World`, systems. No rendering/OS deps. |
-| `pf_net` | Rollback wiring (GGRS) + the SyncTest determinism gate. |
+| `pf_net` | The GGRS session `pf_app` runs every tick through, plus the SyncTest determinism gate. |
 | `pf_render` | Presentation (macroquad). Reads the sim, interpolates, draws. |
 | `pf_app` | Entry point: the 60 Hz fixed-timestep loop (desktop + web). |
 
@@ -40,8 +40,9 @@ cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/
 
 **Phases 0–1 complete** (LUT trig deferred until knockback needs angles):
 deterministic fixed-point core, SyncTest green in CI, and a local N-player demo
-that runs on desktop and in the browser. Netplay will cap at 4 fighters.
+that runs on desktop and in the browser.
 
-**Next (Phase 2):** run local play through a GGRS session built around local
-handles, so netplay later adds only a transport. See the
+**Phase 2 in progress:** local play runs through a GGRS session built around
+local handles, so netplay later adds only a transport. Netplay will cap at 4
+machines; fighters are uncapped. **Next:** replay recording. See the
 [roadmap](docs-site/docs/roadmap.md).
