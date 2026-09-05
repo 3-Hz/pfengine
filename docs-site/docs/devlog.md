@@ -26,7 +26,10 @@ change. `Slots` is told which slots are local and never claims a remote one.
   the per-peer protocol, and macroquad's loader only stubs missing imports
   under `env`. `index.html` now stubs missing function imports in any module;
   the stubs throw if called, which is safe exactly while there are no peers.
-  Both go when Phase 3 moves the web build to the wasm-bindgen pipeline.
+  A third lies in wait: ggrs's per-peer code calls `instant::Instant::now()`,
+  which panics on wasm without the `instant/wasm-bindgen` feature. All three
+  go when Phase 3 moves the web build to the wasm-bindgen pipeline (ggrs's
+  `wasm-bindgen` feature, Trunk).
 
 **Decision: the netplay cap counts machines, not fighters.** At most four
 machines per session (`pf_net::MAX_NETPLAY_MACHINES`); fighters are

@@ -138,6 +138,9 @@ impl Session {
     /// When this returns `Err` or `frames == 0`, `world` is untouched: every
     /// error path runs before the first request is fulfilled.
     ///
+    /// A failed call may leave inputs for earlier handles queued inside
+    /// GGRS; the next call overwrites them.
+    ///
     /// This is the seam for replay recording: every frame's inputs pass
     /// through the advance-frame arm, and [`Session::confirmed_frame`] says
     /// which of them are final.
@@ -155,8 +158,11 @@ impl Session {
 
         let requests = match self.inner.advance_frame() {
             Ok(requests) => requests,
-            // Not this tick: peers are still syncing, or we are too far
-            // ahead of them. Both are routine once there are peers.
+            // Not this tick. `NotSynchronized`: peers are still syncing.
+            // `PredictionThreshold`: kept for symmetry with the spectator
+            // session; a P2P session signals "too far ahead" by returning
+            // requests with no `AdvanceFrame`, which the loop below reports
+            // as zero frames. Both are routine once there are peers.
             Err(GgrsError::NotSynchronized) | Err(GgrsError::PredictionThreshold) => {
                 return Ok(Advanced::default());
             }

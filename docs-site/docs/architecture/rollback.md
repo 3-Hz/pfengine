@@ -17,16 +17,21 @@ You implement its `Config` trait, then drive a session that hands you back
 advance.
 
 ```rust title="pf_net::Session::advance — the rollback loop"
-for request in session.advance_frame(/* local inputs */)? {
+for (handle, input) in local_inputs {
+    session.add_local_input(handle, input)?;
+}
+for request in session.advance_frame()? {
     match request {
         GgrsRequest::SaveGameState { cell, frame } => {
             cell.save(frame, Some(world.clone()), Some(world.checksum())); // (1)!
         }
         GgrsRequest::LoadGameState { cell, .. } => {
-            world = cell.load().unwrap(); // (2)!
+            *world = cell.load().expect("GGRS asked to load a frame it never saved"); // (2)!
         }
         GgrsRequest::AdvanceFrame { inputs } => {
-            world.advance(extract(inputs)); // (3)!
+            frame_inputs.clear();
+            frame_inputs.extend(inputs.iter().map(|(input, _)| *input));
+            world.advance(&frame_inputs); // (3)!
         }
     }
 }
