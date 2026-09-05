@@ -59,6 +59,11 @@ lower crates stay fully portable.
         # then serve crates/pf_app/web/ over http and open index.html
         ```
 
+        `crates/pf_app/web/` also holds `mq_js_bundle.js` — macroquad's JS glue,
+        vendored from the pinned crate, so the page fetches no third-party
+        script at runtime. Delete the copied `.wasm` when you are done; it is
+        not gitignored.
+
     Web netplay uses [matchbox](../architecture/rollback.md#the-web-netplay-trap-and-the-fix)
     (WebRTC), since browsers can't open raw UDP sockets.
 
