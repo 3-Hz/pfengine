@@ -145,7 +145,6 @@ impl Slots {
     }
 
     /// Whether `slot` is driven from this machine.
-    #[allow(dead_code)]
     pub fn is_local(&self, slot: usize) -> bool {
         self.local[slot]
     }

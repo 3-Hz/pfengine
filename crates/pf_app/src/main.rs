@@ -1,7 +1,8 @@
 //! pfengine entry point.
 //!
-//! Runs the documented fixed-timestep loop: the deterministic [`World`] advances
-//! in whole 60 Hz ticks, while rendering interpolates between ticks for
+//! Runs the documented fixed-timestep loop: every 60 Hz tick goes through a
+//! [`Session`] in `pf_net`, which owns the GGRS rollback session and advances
+//! the deterministic [`World`]. Rendering interpolates between ticks for
 //! smoothness. Input sources and slot assignment live here in the platform
 //! layer (see [`input`]); the simulation only ever sees one [`Input`] per slot.
 
@@ -11,6 +12,7 @@ mod wasm_entropy;
 
 use macroquad::prelude::*;
 use pf_core::{Input, World};
+use pf_net::{Advanced, Session};
 
 use crate::input::{keyboard_sources, Slots};
 
@@ -57,9 +59,14 @@ async fn main() {
     let mut prev = world.clone();
     let mut acc: f32 = 0.0;
 
+    // Local play: every handle is local. Phase 3 builds the session from a
+    // lobby instead; the loop below does not change.
+    let mut session = Session::local(num_players).expect("local session");
+    let local_handles = session.local_handles().to_vec();
     let mut sources = keyboard_sources();
-    let mut slots = Slots::new(num_players, &(0..num_players).collect::<Vec<_>>());
+    let mut slots = Slots::new(num_players, &local_handles);
     let mut inputs = vec![Input::default(); num_players];
+    let mut last = Advanced::default();
 
     loop {
         acc += get_frame_time();
@@ -68,7 +75,12 @@ async fn main() {
         while acc >= TICK && steps < MAX_STEPS_PER_FRAME {
             prev = world.clone();
             slots.tick(&mut sources, &mut inputs);
-            world.advance(&inputs);
+            match session.advance(&mut world, local_handles.iter().map(|&h| (h, inputs[h]))) {
+                Ok(advanced) => last = advanced,
+                // The world is untouched on an error, so prev == world and
+                // nothing jumps on screen.
+                Err(e) => error!("session: {e}"),
+            }
             acc -= TICK;
             steps += 1;
         }
@@ -91,7 +103,8 @@ async fn main() {
         for slot in 0..num_players {
             let status = match slots.source_of(slot) {
                 Some(src) => sources[src].label(),
-                None => "press jump to join",
+                None if slots.is_local(slot) => "press jump to join",
+                None => "remote",
             };
             draw_text(
                 format!("P{}: {status}", slot + 1),
@@ -101,6 +114,21 @@ async fn main() {
                 pf_render::color_for(slot),
             );
         }
+        let confirmed = match session.confirmed_frame() {
+            Some(frame) => frame.to_string(),
+            None => "-".to_owned(),
+        };
+        let rollback = if last.rolled_back { "  rollback" } else { "" };
+        draw_text(
+            format!(
+                "session frame {}  confirmed {confirmed}{rollback}",
+                session.frame_count()
+            ),
+            16.0,
+            60.0 + 20.0 * num_players as f32,
+            18.0,
+            LIGHTGRAY,
+        );
 
         next_frame().await;
     }
