@@ -8,7 +8,10 @@
 use std::error::Error;
 use std::fmt;
 
-use ggrs::{GgrsError, Message, NonBlockingSocket, P2PSession, PlayerType, SessionBuilder};
+use ggrs::{
+    GgrsError, GgrsRequest, Message, NonBlockingSocket, P2PSession, PlayerType, SessionBuilder,
+};
+use pf_core::{Input, World};
 
 use crate::GgrsConfig;
 
@@ -74,11 +77,12 @@ impl From<GgrsError> for SessionError {
 
 /// A GGRS rollback session and the request loop that drives a [`World`]
 /// through it.
-///
-/// [`World`]: pf_core::World
 pub struct Session {
     inner: P2PSession<GgrsConfig>,
     local_handles: Vec<PlayerHandle>,
+    /// Scratch for the advance-frame request; kept to avoid allocating every
+    /// tick.
+    frame_inputs: Vec<Input>,
 }
 
 impl Session {
@@ -101,6 +105,7 @@ impl Session {
         Ok(Session {
             inner,
             local_handles: (0..num_players).collect(),
+            frame_inputs: Vec::with_capacity(num_players),
         })
     }
 
@@ -125,11 +130,68 @@ impl Session {
         let frame = self.inner.confirmed_frame();
         (frame >= 0).then_some(frame as u32)
     }
+
+    /// One 60 Hz tick. Queues one input per local handle, then fulfils every
+    /// request GGRS hands back: save = clone + checksum, load = replace the
+    /// world, advance = [`World::advance`] with the inputs GGRS chose.
+    ///
+    /// When this returns `Err` or `frames == 0`, `world` is untouched: every
+    /// error path runs before the first request is fulfilled.
+    ///
+    /// This is the seam for replay recording: every frame's inputs pass
+    /// through the advance-frame arm, and [`Session::confirmed_frame`] says
+    /// which of them are final.
+    pub fn advance<I>(
+        &mut self,
+        world: &mut World,
+        local_inputs: I,
+    ) -> Result<Advanced, SessionError>
+    where
+        I: IntoIterator<Item = (PlayerHandle, Input)>,
+    {
+        for (handle, input) in local_inputs {
+            self.inner.add_local_input(handle, input)?;
+        }
+
+        let requests = match self.inner.advance_frame() {
+            Ok(requests) => requests,
+            // Not this tick: peers are still syncing, or we are too far
+            // ahead of them. Both are routine once there are peers.
+            Err(GgrsError::NotSynchronized) | Err(GgrsError::PredictionThreshold) => {
+                return Ok(Advanced::default());
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+        let mut advanced = Advanced::default();
+        for request in requests {
+            match request {
+                GgrsRequest::SaveGameState { cell, frame } => {
+                    cell.save(frame, Some(world.clone()), Some(world.checksum()));
+                }
+                GgrsRequest::LoadGameState { cell, .. } => {
+                    *world = cell
+                        .load()
+                        .expect("GGRS asked to load a frame it never saved");
+                    advanced.rolled_back = true;
+                }
+                GgrsRequest::AdvanceFrame { inputs } => {
+                    self.frame_inputs.clear();
+                    self.frame_inputs
+                        .extend(inputs.iter().map(|(input, _)| *input));
+                    world.advance(&self.frame_inputs);
+                    advanced.frames += 1;
+                }
+            }
+        }
+        Ok(advanced)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scripted_input;
     use crate::MAX_NETPLAY_MACHINES;
 
     #[test]
@@ -150,5 +212,81 @@ mod tests {
     fn local_session_has_no_player_cap() {
         let n = MAX_NETPLAY_MACHINES * 2;
         assert_eq!(Session::local(n).unwrap().num_players(), n);
+    }
+
+    #[test]
+    fn local_session_matches_direct_stepping() {
+        for n in [1, 2, 4, 8] {
+            let mut session = Session::local(n).unwrap();
+            let mut through_session = World::new(n);
+            let mut direct = World::new(n);
+            let mut inputs = vec![Input::default(); n];
+
+            for frame in 0..300 {
+                for (handle, input) in inputs.iter_mut().enumerate() {
+                    *input = scripted_input(handle, frame);
+                }
+                let advanced = session
+                    .advance(&mut through_session, inputs.iter().copied().enumerate())
+                    .unwrap_or_else(|e| panic!("{n} players, frame {frame}: {e}"));
+                assert_eq!(
+                    advanced,
+                    Advanced {
+                        frames: 1,
+                        rolled_back: false
+                    },
+                    "{n} players, frame {frame}"
+                );
+                direct.advance(&inputs);
+                assert_eq!(
+                    session.frame_count(),
+                    through_session.frame,
+                    "{n} players, frame {frame}"
+                );
+            }
+
+            assert_eq!(through_session, direct, "{n} players");
+            assert_eq!(through_session.checksum(), direct.checksum(), "{n} players");
+            // Inputs are queued for the frame about to run, so the confirmed
+            // frame trails the frame count by one.
+            assert_eq!(session.confirmed_frame(), Some(299), "{n} players");
+        }
+    }
+
+    #[test]
+    fn advance_with_a_missing_local_input_is_an_error_and_leaves_the_world_untouched() {
+        let mut session = Session::local(2).unwrap();
+        let mut world = World::new(2);
+        let before = world.clone();
+
+        let result = session.advance(&mut world, [(0, Input::default())]);
+
+        assert!(matches!(
+            result,
+            Err(SessionError::Ggrs(GgrsError::InvalidRequest { .. }))
+        ));
+        assert_eq!(world, before);
+        assert_eq!(session.frame_count(), 0);
+    }
+
+    #[test]
+    fn advance_with_an_unknown_handle_is_an_error() {
+        let mut session = Session::local(2).unwrap();
+        let mut world = World::new(2);
+
+        let result = session.advance(
+            &mut world,
+            [
+                (0, Input::default()),
+                (1, Input::default()),
+                (7, Input::default()),
+            ],
+        );
+
+        assert!(matches!(
+            result,
+            Err(SessionError::Ggrs(GgrsError::InvalidRequest { .. }))
+        ));
+        assert_eq!(world, World::new(2));
     }
 }
