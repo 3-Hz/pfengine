@@ -32,3 +32,5 @@ jobs:
       # library only on darwin/ios, so nothing is required to compile. A
       # headless runner never opens a window.
       - run: cargo build -p pf_app --target wasm32-unknown-unknown
+      # The only lint pass that sees pf_app's wasm-only code (src/wasm_entropy.rs).
+      - run: cargo clippy -p pf_app --target wasm32-unknown-unknown -- -D warnings

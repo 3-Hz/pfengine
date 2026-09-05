@@ -54,7 +54,9 @@ projects — building a deep game on an unproven foundation.
 > **Goal:** two instances playing across a network.
 > **Proves:** rollback works online.
 
-- [ ] matchbox WebRTC transport + signaling (≤ 4 machines).
+- [ ] matchbox WebRTC transport + signaling (≤ 4 machines). On web this means
+      the wasm-bindgen pipeline (ggrs's `wasm-bindgen` feature, Trunk) and
+      dropping the loader stubs in `index.html`.
 - [ ] Couch + online: several local players per machine in one session. The
       cap counts machines, not fighters; the slot binder already claims only
       local handles.

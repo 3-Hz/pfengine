@@ -12,7 +12,7 @@ mod wasm_entropy;
 
 use macroquad::prelude::*;
 use pf_core::{Input, World};
-use pf_net::{Advanced, Session};
+use pf_net::Session;
 
 use crate::input::{keyboard_sources, Slots};
 
@@ -66,17 +66,19 @@ async fn main() {
     let mut sources = keyboard_sources();
     let mut slots = Slots::new(num_players, &local_handles);
     let mut inputs = vec![Input::default(); num_players];
-    let mut last = Advanced::default();
 
     loop {
         acc += get_frame_time();
+
+        // Whether any sim step in this render frame rolled back; feeds the HUD.
+        let mut rolled_back = false;
 
         let mut steps = 0;
         while acc >= TICK && steps < MAX_STEPS_PER_FRAME {
             prev = world.clone();
             slots.tick(&mut sources, &mut inputs);
             match session.advance(&mut world, local_handles.iter().map(|&h| (h, inputs[h]))) {
-                Ok(advanced) => last = advanced,
+                Ok(advanced) => rolled_back |= advanced.rolled_back,
                 // The world is untouched on an error, so prev == world and
                 // nothing jumps on screen.
                 Err(e) => error!("session: {e}"),
@@ -118,7 +120,7 @@ async fn main() {
             Some(frame) => frame.to_string(),
             None => "-".to_owned(),
         };
-        let rollback = if last.rolled_back { "  rollback" } else { "" };
+        let rollback = if rolled_back { "  rollback" } else { "" };
         draw_text(
             format!(
                 "session frame {}  confirmed {confirmed}{rollback}",
