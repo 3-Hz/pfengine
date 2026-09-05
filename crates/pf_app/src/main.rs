@@ -58,7 +58,7 @@ async fn main() {
     let mut acc: f32 = 0.0;
 
     let mut sources = keyboard_sources();
-    let mut slots = Slots::new(num_players);
+    let mut slots = Slots::new(num_players, &(0..num_players).collect::<Vec<_>>());
     let mut inputs = vec![Input::default(); num_players];
 
     loop {
