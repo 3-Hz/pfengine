@@ -4,144 +4,211 @@ icon: lucide/cpu
 
 # The deterministic core
 
-Everything in `pf_core` exists to protect one guarantee: **the same inputs
-produce bit-identical state on every machine.** This page covers the four
-pillars that make that true.
+`pf_core` keeps one promise: **the same inputs produce bit-identical state on
+every machine.** Rollback re-simulates on the strength of it, and peers compare
+checksums against it. Three mechanisms keep the promise, one loop drives them,
+and the last section says what catches a violation.
 
-## 1. Fixed-point math, not floats
+## 1. Fixed-point math
 
-Cross-platform floating point is the classic way rollback silently desyncs:
-different CPUs, compilers, and especially WASM can produce slightly different
-results for the same operation. We sidestep the problem entirely by using
-**fixed-point** integers via the [`fixed`](https://docs.rs/fixed) crate.
+`Fx` is the engine's only scalar: the [`fixed`](https://docs.rs/fixed) crate's
+`I16F16`, 16 integer and 16 fractional bits, a range of ±32 768 at a resolution
+of 1/65 536.
 
-Start with `I16F16` (32-bit: ~±32k range with 1/65536 precision — plenty for
-screen-space physics), and move to 64-bit `I32F32` only if a subsystem needs
-more headroom.
+```rust title="crates/pf_core/src/math/mod.rs"
+/// The engine-wide fixed-point scalar: 16 integer bits, 16 fractional bits.
+pub type Fx = I16F16;
 
-```rust title="pf_core/src/math/mod.rs"
-use fixed::types::I16F16;
-
-pub type Fx = I16F16; // (1)!
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+/// A 2D fixed-point vector. Used for positions, velocities, and offsets.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
 pub struct V2 {
     pub x: Fx,
     pub y: Fx,
 }
 ```
 
-1.  One type alias for the whole engine's scalar. Swapping precision later is a
-    one-line change here.
+Floating point is the classic silent desync: one `f32` expression can round
+differently across CPUs, compilers, and the WASM runtime, and rollback notices
+only when checksums disagree. A fixed-point number is an integer with an agreed
+binary point, and integer arithmetic is identical everywhere.
 
-!!! warning "Watch multiplication overflow"
+`I16F16` fits screen-space physics: the stage is 400 units wide and the fastest
+thing moves 8 units a tick. The alias is the swap point; the 64-bit `I32F32` is
+a one-line change if a subsystem needs headroom.
 
-    Fixed-point multiply can overflow the backing integer. Use the `fixed`
-    crate's widening / saturating operations in hot paths rather than the naive
-    `*` when values can grow large.
+Two consequences show in the code:
 
-## 2. Deterministic trig via lookup tables
+- **Constants are raw bits.** `Fx::from_bits` is `const` and `Fx::from_num` is
+  not, so the physics constants are bit patterns with the value in the comment
+  (`bits = value × 2^16`).
 
-Knockback in Melee uses fixed launch angles, so trig is a natural fit for
-**lookup tables** — which are both deterministic *and* authentic to how the
-original game worked. Index a precomputed `sin`/`cos` table by an integer angle
-(e.g. a `u16` representing 65536 steps around the circle) instead of calling
-`f32::sin`.
+    ```rust title="crates/pf_core/src/systems/mod.rs"
+    /// Downward acceleration per tick (≈ 0.5 px/frame²).
+    pub const GRAVITY: Fx = Fx::from_bits(32_768);
+    /// Horizontal ground/air speed at full stick (≈ 3.0 px/frame).
+    pub const MOVE_SPEED: Fx = Fx::from_bits(196_608);
+    /// Initial upward velocity of a jump (≈ 8.0 px/frame).
+    pub const JUMP_VELOCITY: Fx = Fx::from_bits(524_288);
+    ```
 
-## 3. Deterministic randomness
+- **Overflow is near.** `World::new` divides the stage width by the player
+  count *before* multiplying by the index, because `width * (n + 1)` overflows
+  past about 80 players. The release profile keeps `overflow-checks = true`
+  (`Cargo.toml`), so an overflow panics instead of wrapping into a wrong value
+  every machine would agree on.
 
-No `rand::thread_rng()`, no OS entropy. A tiny PRNG (xorshift / PCG) seeded from
-**sim state** and advanced inside the simulation, so every machine draws the
-same sequence.
+**Decided, not built: trig by lookup table.** Melee launches at fixed angles,
+so a `sin`/`cos` table indexed by an integer angle is deterministic and true to
+the original; `f32::sin` is the rejected route. Nothing needs an angle until
+Phase 5 knockback, so the table waits.
 
-```rust title="pf_core/src/math/rng.rs"
-#[derive(Clone, Copy)]
-pub struct Rng(u64); // part of the world state, advanced only inside update()
+## 2. Deterministic randomness
+
+`Rng` is a xorshift64\* generator holding one `u64`. It lives inside `World`,
+and `advance` steps it once per tick.
+
+```rust title="crates/pf_core/src/math/rng.rs"
+/// A small, fast xorshift64* generator. Lives inside [`crate::World`].
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct Rng(u64);
 
 impl Rng {
-    pub fn next_u32(&mut self) -> u32 {
-        // xorshift64* — deterministic everywhere
-        self.0 ^= self.0 >> 12;
-        self.0 ^= self.0 << 25;
-        self.0 ^= self.0 >> 27;
-        ((self.0.wrapping_mul(0x2545F4914F6CDD1D)) >> 32) as u32
+    /// Create an RNG from a seed. A non-zero state is enforced.
+    #[inline]
+    pub const fn new(seed: u64) -> Self {
+        // xorshift must never have an all-zero state.
+        Rng(seed | 1)
+    }
+    // ...
+    /// A fixed-point value in `[0, 1)`.
+    #[inline]
+    pub fn next_fx(&mut self) -> Fx {
+        // Use the high 16 bits as the fractional part of an I16F16.
+        let frac = (self.next_u32() >> 16) as i32;
+        Fx::from_bits(frac)
     }
 }
 ```
 
-## 4. One flat, serializable world
+`rand::thread_rng()` and OS entropy differ per machine by design. Seeded from
+state and advanced only inside `advance`, the generator is part of what
+rollback saves and restores, so a rewound frame draws the same numbers again.
+`seed | 1` matters because an all-zero xorshift state stays zero forever.
 
-Rollback clones the entire state several times per second, so it must be cheap
-to copy. Keep it contiguous `Copy` data: a `Vec<Fighter>` is one allocation and
-one memcpy. Two things break that:
+Today `World::new` seeds it with a constant, no system draws from it, and
+`checksum()` does not hash it; its state is a function of the frame count.
 
-- **Hash-ordered containers** (`HashMap`, `HashSet`): iteration order differs
-  between peers, so the same inputs produce different results — a desync.
-- **Per-entity boxes** (`Vec<Box<_>>`, `Rc` graphs, linked lists): a clone
-  becomes N mallocs and N cache misses.
+## 3. One flat, serializable world
 
-One heap allocation per snapshot is fine; GGRS already stores every saved state
-behind an `Arc<Mutex<_>>`.
-
-```rust title="pf_core/src/world.rs"
-#[derive(Clone)] // (1)!
+```rust title="crates/pf_core/src/world.rs"
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct World {
     pub players: Vec<Fighter>,
     pub stage: Stage,
     pub frame: u32,
     pub rng: Rng,
 }
-
-impl World {
-    /// The pure update. This is the entire simulation.
-    pub fn advance(&mut self, inputs: &[Input]) { // (2)!
-        /* ... */
-        self.frame += 1;
-    }
-
-    /// Hash of the full state — used for desync detection and SyncTest.
-    pub fn checksum(&self) -> u128 {
-        /* ... */
-        0
-    }
-}
 ```
 
-1.  `#[derive(Clone)]` *is* the rollback snapshot mechanism. Keep this type POD
-    enough that cloning it is a cheap `memcpy`-like operation.
-2.  One `Input` per fighter, any number of them. Netplay caps machines
-    (`pf_net::MAX_NETPLAY_MACHINES`, 4), not fighters.
+`#[derive(Clone)]` *is* the rollback snapshot: when GGRS asks for a save,
+`pf_net` answers `world.clone()`. `Fighter` and `Stage` are `Copy`, so the clone
+is one allocation and one memcpy however many fighters there are.
 
-The `checksum()` is what turns "mysterious desync three weeks from now" into a
-test failure on the exact frame — see [Rollback netcode](rollback.md).
+`advance` takes one `Input` per fighter, for any number of fighters: zero is a
+valid empty world and a hundred works. The count is asserted because `zip`
+would truncate silently; a mismatch is a contract bug, not a runtime condition.
+
+```rust title="crates/pf_core/src/world.rs"
+    pub fn advance(&mut self, inputs: &[Input]) {
+        assert_eq!(
+            inputs.len(),
+            self.players.len(),
+            "advance needs exactly one Input per fighter"
+        );
+        for (fighter, &input) in self.players.iter_mut().zip(inputs) {
+            systems::step_fighter(fighter, input, &self.stage);
+        }
+```
+
+`checksum()` is a 128-bit FNV-1a hash over each fighter's position, velocity,
+state, and facing, then the stage and the frame, in a fixed order. It turns
+"mysterious desync three weeks from now" into a test failure on the exact
+frame; see [SyncTest](rollback.md#synctest-determinism-as-a-ci-gate).
+
+Two things stay out of `World`, for different reasons:
+
+- **Hash-ordered containers** (`HashMap`, `HashSet`): iteration order differs
+  between processes, so peers running the same inputs diverge.
+- **Per-entity boxes** (`Vec<Box<_>>`, `Rc` graphs, linked lists): a clone
+  becomes N mallocs and N cache misses, several times a second.
+
+The first is a determinism rule, the second a cost rule. An earlier "no heap
+indirection" rule bundled them and was retired as over-broad
+([dev log, 2026-09-04](../devlog.md#2026-09-04-n-players-locally-4-over-netplay)):
+one allocation per snapshot is fine, and GGRS already stores every saved state
+behind an `Arc<Mutex<_>>`.
 
 ## The fixed-timestep loop
 
-The simulation always advances in whole 60 Hz ticks. The renderer decouples
-from it by accumulating real elapsed time and interpolating the leftover.
+The simulation advances in whole 60 Hz ticks. `pf_app` accumulates real elapsed
+time, runs one tick per whole `TICK` in the accumulator, and hands the leftover
+fraction to the renderer.
 
-```rust title="conceptual loop (lives in pf_app, not pf_core)"
-const TICK: Duration = Duration::from_nanos(16_666_667); // 60 Hz
-let mut acc = Duration::ZERO;
-loop {
-    acc += frame_time();          // real wall-clock delta (presentation only)
-    while acc >= TICK {
-        session.advance(&mut world, poll_inputs()); // GGRS: save / load / advance
-        acc -= TICK;
-    }
-    let alpha = acc.as_secs_f32() / TICK.as_secs_f32();
-    render(&world, &prev_world, alpha); // interpolate; render never mutates sim
-}
+```rust title="crates/pf_app/src/main.rs"
+/// Seconds per simulation tick (60 Hz).
+const TICK: f32 = 1.0 / 60.0;
+/// Guard against the "spiral of death" if a frame hitches badly.
+const MAX_STEPS_PER_FRAME: u32 = 5;
 ```
 
-## Rust determinism checklist
+```rust title="crates/pf_app/src/main.rs"
+        acc += get_frame_time();
+        // ...
+        let mut steps = 0;
+        while acc >= TICK && steps < MAX_STEPS_PER_FRAME {
+            prev = world.clone();
+            slots.tick(&mut sources, &mut inputs);
+            match session.advance(&mut world, local_handles.iter().map(|&h| (h, inputs[h]))) {
+                Ok(advanced) => rolled_back |= advanced.rolled_back,
+                // The world is untouched on an error, so prev == world and
+                // nothing jumps on screen.
+                Err(e) => error!("session: {e}"),
+            }
+            acc -= TICK;
+            steps += 1;
+        }
+        // If we hit the step cap, drop the backlog rather than spiral.
+        if steps == MAX_STEPS_PER_FRAME {
+            acc = 0.0;
+        }
 
-Internalize these now — each one is a classic desync source:
+        let alpha = (acc / TICK).clamp(0.0, 1.0);
+```
 
-- [ ] No `f32` / `f64` anywhere in `pf_core`.
-- [ ] No `HashMap`/`HashSet` iteration in sim logic (order isn't stable — use
-      arrays or `BTreeMap`).
-- [ ] No `Instant::now()` / system time inside `update()`.
-- [ ] No threads that can reorder simulation work.
-- [ ] RNG seeded only from sim state, advanced only inside `update()`.
-- [ ] `SyncTestSession` green in CI (see next page).
+Whole ticks mean the same inputs produce the same steps at any frame rate. The
+accumulator is `f32` wall-clock time in `pf_app`, which is allowed floats, and
+never enters the sim. `prev` is the previous tick, kept so `pf_render` can
+interpolate by `alpha`. The step cap answers a hitch: without it the loop would
+run dozens of ticks in one frame and fall further behind, so after five it
+drops the backlog, a skip in time chosen over a stall. Each tick goes through
+`session.advance` rather than `World::advance`; the
+[rollback page](rollback.md#ggrs-the-rollback-engine) says why.
+
+## What catches a violation
+
+Each rule is a classic desync source. The last column is honest about coverage:
+SyncTest re-simulates inside one process and cannot see what differs only
+*between* machines.
+
+| Rule | What goes wrong | What catches it |
+| --- | --- | --- |
+| No `f32`/`f64` in `pf_core` | One expression rounds differently across CPUs and WASM | Review, plus `pf_core`'s dependency list (`fixed`, `serde`): nothing pulls float-based math in. The compiler does not forbid `f32` here. |
+| No `HashMap`/`HashSet` iteration in sim logic | Order differs per process | Review; peers, once Phase 3 turns desync detection on. |
+| No `Instant::now()` or system time in `advance` | A rewound frame sees a different clock | SyncTest: the re-simulated frame runs at a different wall time. |
+| No threads reordering sim work | Operation order varies run to run | Review; SyncTest when a reorder changes a frame. |
+| RNG seeded from state, advanced in `advance` | A rewound frame draws different numbers | SyncTest. |
+| Everything the sim reads lives in `World` | Rollback restores a partial state | SyncTest: the case it was built for. |
+
+SyncTest runs in `cargo test --workspace` on every push and pull request
+(`.github/workflows/rust.yml`); how it works is on the
+[rollback page](rollback.md#synctest-determinism-as-a-ci-gate).
