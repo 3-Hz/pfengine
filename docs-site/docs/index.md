@@ -4,76 +4,84 @@ icon: lucide/swords
 
 # pfengine
 
-**pfengine** is a platform-agnostic engine for building [platform
+**pfengine** is an engine for building [platform
 fighters](https://en.wikipedia.org/wiki/Platform_fighter) in the lineage of
-*Super Smash Bros. Melee* — games whose depth emerges from many small,
-interacting mechanics rather than from a general-purpose physics engine.
-
-It is designed from the ground up around two goals that, together, dictate
-almost every architectural decision:
+*Super Smash Bros. Melee*: games whose depth comes from many small, interacting
+mechanics rather than from a general-purpose physics engine. It is four Rust
+crates and one rule, and the rule decides nearly everything else.
 
 <div class="grid cards" markdown>
 
 -   :material-rocket-launch: __Run everywhere__
 
-    One codebase targeting native **macOS, Linux, Windows**, the **browser**
-    (WebAssembly + WebGPU/WebGL), and **Android / iOS**.
+    One Cargo workspace. Desktop and the browser run today from the same
+    code, and only `pf_app` carries platform `cfg`s. Android and iOS are
+    decided, not built.
 
 -   :material-sync: __Smooth online play__
 
-    GGPO-style **rollback netcode** for responsive, low-latency matches —
-    the requirement that shapes the whole engine.
+    GGPO-style **rollback** through GGRS. Local play already runs through the
+    rollback session; the network transport (matchbox, WebRTC) is Phase 3.
 
 -   :material-tune-vertical: __Emergent depth__
 
-    Movement and combat built from small composable mechanics
-    (gravity, friction, hitstun, knockback, ledges, ECB collision…) that
-    interact to produce techniques nobody explicitly scripted.
+    Movement and combat built from small mechanics in a fixed order, so
+    techniques like the wavedash fall out instead of being scripted. Today: one
+    fighter with gravity, a jump, and a flat floor. The state machine and
+    combat are Phase 5.
 
 -   :material-language-rust: __Built in Rust__
 
-    Fixed-point determinism, no GC pauses, first-class WASM and mobile
-    targets, and a mature rollback ecosystem.
+    Fixed-point determinism, no GC pauses, first-class WASM, and a rollback
+    ecosystem (GGRS, matchbox). Chosen over C++, Godot, and Unity; the
+    [dev log](devlog.md#2026-06-07-stack-decided-rust) records why.
 
 </div>
 
-## Why this is hard (and why the design looks the way it does)
+## The one rule, and what it forces
 
-The single most demanding requirement is **rollback netcode**. Rollback works
-by predicting remote inputs, then — when the real inputs arrive — rewinding the
-game state and re-simulating the missed frames. For that to be correct, every
-machine must compute **bit-identical** results from the same inputs.
+Rollback works by predicting remote inputs, then rewinding and re-simulating
+when the real ones arrive. That is correct only if every machine computes
+**bit-identical** state from the same inputs. So the simulation is a pure
+function:
 
-That one requirement cascades into three hard constraints:
+```
+new_state = advance(old_state, inputs)
+```
 
-1. **Deterministic simulation** — no reliance on floating point across
-   platforms, no wall-clock time, no unordered iteration, no external
-   randomness.
-2. **Cheap save/restore** — the entire game state must snapshot and restore
-   many times per second.
-3. **A hard sim / render split** — the simulation is a pure function of state
-   and inputs; rendering only ever *reads* it.
+No floats, no clocks, no outside randomness, no rendering. Three things in the
+code follow from it:
 
-!!! tip "The one rule everything follows"
+1. **`pf_core` computes in fixed point.** `Fx` is `I16F16` from the `fixed`
+   crate, and `pf_core` depends on `fixed` and `serde` alone.
+2. **`World: Clone` is the rollback snapshot.** The state is a flat struct of
+   `Copy` data, so a save is one memcpy, cheap enough to take several times a
+   second.
+3. **Rendering is a separate crate that only reads.** `pf_render` interpolates
+   between two `World`s and never writes back; `pf_app` runs the 60 Hz loop
+   and owns every platform detail.
 
-    The simulation is a pure function: `new_state = update(old_state, inputs)`.
-    No floats, no clocks, no outside randomness, no rendering. Get this right
-    and rollback is nearly free. Break it and rollback is impossible.
+Get the rule right and rollback is nearly free. Break it and rollback is
+impossible.
 
 ## Where to go next
 
-- [Architecture overview](architecture/overview.md) — the two-world model.
-- [Deterministic core](architecture/deterministic-core.md) — fixed-point math,
-  fixed timestep, the serializable world.
-- [Rollback netcode](architecture/rollback.md) — GGRS, SyncTest, and the
-  web-netplay transport.
-- [Mechanics model](architecture/mechanics.md) — how Melee-style depth is
-  structured.
-- [Roadmap](roadmap.md) — the phased build plan.
+- [Architecture overview](architecture/overview.md): the two-world model and
+  where its boundary is enforced.
+- [Deterministic core](architecture/deterministic-core.md): fixed point, the
+  RNG, the flat `World`, the loop, and what catches a violation.
+- [Rollback netcode](architecture/rollback.md): the GGRS session, SyncTest,
+  couch + online, and the web transport.
+- [Mechanics model](architecture/mechanics.md): what runs today and the
+  layered design it grows into.
+- [Building everywhere](guide/builds.md): each target, what the web build
+  carries, and CI.
+- [Roadmap](roadmap.md): the phased plan.
 
 !!! note "Status"
 
     This site documents the **design** as it is decided and the **development**
-    as it happens. The engine today is a deterministic core and a local
-    N-player demo on desktop and web; rollback is tested but not yet wired
-    into the app. See the [Dev log](devlog.md) for the running record.
+    as it happens. Today the engine is a deterministic core and a local
+    N-player demo on desktop and web, with every tick running through the GGRS
+    session and no peers yet. Next: replay recording, then the network
+    transport. The [Dev log](devlog.md) is the running record.

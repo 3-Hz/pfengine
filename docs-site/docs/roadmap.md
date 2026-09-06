@@ -104,11 +104,3 @@ projects — building a deep game on an unproven foundation.
 - [ ] Web netplay hardening.
 - [ ] Matchmaking / lobby service.
 
----
-
-!!! note "Learning Rust alongside"
-
-    You don't need all of Rust up front. Front-load ownership/borrowing,
-    `struct`/`enum` + pattern matching (your state machines *are* enums), traits
-    (GGRS uses them), and `Result`/`Option`. Defer async, advanced lifetimes,
-    and `unsafe`. Phases 0–1 are the on-ramp; by Phase 5 you'll be fluent.

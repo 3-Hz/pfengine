@@ -4,7 +4,8 @@
 
 A platform-agnostic [platform fighter](docs-site/docs/index.md) engine
 (Melee-like) with **deterministic fixed-point simulation** and **rollback
-netcode**, built in Rust.
+netcode**, built in Rust. Rollback needs every machine to compute the same
+bits from the same inputs; that one requirement shapes every crate below.
 
 > Full design docs: <https://3-hz.github.io/pfengine/>. Source in `docs-site/`
 > (a [Zensical](https://zensical.org) site); `zensical serve` there previews
@@ -14,10 +15,10 @@ netcode**, built in Rust.
 
 | Crate | Role |
 | --- | --- |
-| `pf_core` | Deterministic simulation — fixed-point math, the serializable `World`, systems. No rendering/OS deps. |
-| `pf_net` | The GGRS session `pf_app` runs every tick through, plus the SyncTest determinism gate. |
-| `pf_render` | Presentation (macroquad). Reads the sim, interpolates, draws. |
-| `pf_app` | Entry point: the 60 Hz fixed-timestep loop (desktop + web). |
+| `pf_core` | The simulation: fixed-point math and a `Clone`-able `World`, so every machine computes the same bits and a rollback snapshot is one memcpy. Depends on `fixed` and `serde` only. |
+| `pf_net` | The GGRS session every tick runs through, so netplay later adds only a transport, plus the SyncTest gate CI runs. |
+| `pf_render` | Presentation (macroquad). Reads two `World`s and interpolates; never writes back. |
+| `pf_app` | The 60 Hz loop, input sources, slot binding, and the only platform `cfg`s (desktop + web). |
 
 ## Develop
 

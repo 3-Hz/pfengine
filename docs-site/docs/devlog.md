@@ -78,7 +78,7 @@ determinism rule (no hash-ordered containers) with a performance heuristic
 (no per-entity boxes). A contiguous `Vec` of `Copy` data is one allocation and
 one memcpy per snapshot — and GGRS already boxes every saved state in an
 `Arc<Mutex<_>>`.
-[Deterministic core §4](architecture/deterministic-core.md#4-one-flat-serializable-world)
+[Deterministic core §3](architecture/deterministic-core.md#3-one-flat-serializable-world)
 now states the rule as meant.
 
 **Decision: couch + online.** A machine may own several of a session's
