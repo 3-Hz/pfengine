@@ -4,22 +4,20 @@
 
 A platform-agnostic [platform fighter](docs-site/docs/index.md) engine
 (Melee-like) with **deterministic fixed-point simulation** and **rollback
-netcode**, built in Rust. Rollback only works if every machine computes the
-same bits from the same inputs, and that one requirement shapes every crate
-below.
+netcode**, built in Rust.
 
-> Full design docs: <https://3-hz.github.io/pfengine/>. Their source is in
-> `docs-site/` (a [Zensical](https://zensical.org) site); run `zensical serve`
-> there to preview it locally.
+> Full design docs: <https://3-hz.github.io/pfengine/>. The source is in
+> `docs-site/` (a [Zensical](https://zensical.org) site); `zensical serve`
+> there previews it locally.
 
 ## Workspace
 
 | Crate | Role |
 | --- | --- |
-| `pf_core` | The simulation. Fixed-point math keeps every machine on the same bits, and `World` is `Clone`, so a rollback snapshot is one allocation and one memcpy. Depends on `fixed` and `serde` only. |
-| `pf_net` | The GGRS session that every tick runs through, so netplay later adds only a transport. Also the SyncTest gate that CI runs. |
-| `pf_render` | Presentation (macroquad). Interpolates between two `World`s and never writes back. |
-| `pf_app` | The 60 Hz loop, input sources, and slot binding. The only crate with platform `cfg`s (desktop + web). |
+| `pf_core` | Deterministic simulation: fixed-point math, the serializable `World`, and the systems that step it. No rendering or OS dependencies; it depends on `fixed` and `serde` only. |
+| `pf_net` | The GGRS session that `pf_app` runs every tick through, plus the SyncTest determinism gate. |
+| `pf_render` | Presentation (macroquad). Reads the sim, interpolates, and draws; never writes back. |
+| `pf_app` | Entry point: the 60 Hz fixed-timestep loop, input sources, and slot binding (desktop + web). The only crate with platform `cfg`s. |
 
 ## Develop
 
@@ -40,9 +38,9 @@ cp target/wasm32-unknown-unknown/debug/pf_app.wasm crates/pf_app/web/
 
 ## Status
 
-**Phases 0–1 complete** (lookup-table trig waits until knockback needs
-angles): a deterministic fixed-point core, SyncTest green in CI, and a local
-N-player demo that runs on desktop and in the browser.
+**Phases 0–1 complete** (LUT trig deferred until knockback needs angles): a
+deterministic fixed-point core, SyncTest green in CI, and a local N-player
+demo that runs on desktop and in the browser.
 
 **Phase 2 in progress.** Local play runs through a GGRS session built around
 local handles, so netplay later adds only a transport. Netplay will cap at 4

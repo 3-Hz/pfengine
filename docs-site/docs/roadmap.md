@@ -4,11 +4,12 @@ icon: lucide/map
 
 # Roadmap
 
-Each phase can be tested on its own and lowers the risk of the next. The order
-is deliberate: **prove determinism and rollback on a single moving capsule
-before building any real fighting mechanics.** The tempting order runs the
-other way and builds a deep game on an unproven foundation; this plan exists
-to avoid that trap.
+Each phase can be tested on its own and lowers the risk of the next. The
+order is deliberate: **prove determinism and rollback on a single moving
+capsule before building any real fighting mechanics.** That is the opposite
+of the tempting order, and it is exactly how this plan avoids the trap that
+stalls most rollback projects: building a deep game on an unproven
+foundation.
 
 ## Phase 0 — Scaffold
 
@@ -19,9 +20,9 @@ to avoid that trap.
 - [x] Desktop window via `macroquad` (`wgpu` + `winit` remain the eventual
       target; see [Building everywhere](guide/builds.md)).
 - [x] WASM build compiling for `wasm32-unknown-unknown`.
-- [x] That WASM build confirmed running in a browser, via a manual copy and a
-      static server (see [Building everywhere](guide/builds.md)); it joins
-      and moves on keyboard input.
+- [x] That WASM build confirmed running in a browser, through a manual copy
+      and a static server (see [Building everywhere](guide/builds.md)); it
+      joins and moves on keyboard input.
 
 ## Phase 1 — Deterministic core skeleton
 
@@ -45,20 +46,22 @@ to avoid that trap.
 
 - [x] Wrap `World` behind a GGRS `Config`.
 - [x] `cargo test` runs SyncTest and stays green. :material-shield-check:
-- [x] Local multiplayer through a GGRS session built around a set of *local
-      handles*. Local play is the case where every handle is local, and the
-      same loop later carries couch + online.
-- [ ] Replay recording: initial seed, config, and the per-frame input stream,
-      with periodic checksums. (The foundation for the Phase 6 viewer.)
+- [x] Local multiplayer through a GGRS session, built around a set of
+      *local handles*. Local play is the case where every handle is local,
+      and the same loop later carries couch + online.
+- [ ] Replay recording: initial seed, config, and the per-frame input
+      stream, with periodic checksums. (The foundation for the Phase 6
+      viewer.)
 
 ## Phase 3 — Real netplay
 
 > **Goal:** two instances playing across a network.
 > **Proves:** rollback works online.
 
-- [ ] matchbox WebRTC transport + signaling (≤ 4 machines). On web this means
-      the wasm-bindgen pipeline (ggrs's `wasm-bindgen` feature, Trunk) and
-      dropping the loader stubs in `index.html`.
+- [ ] matchbox WebRTC transport + signaling (≤ 4 machines). On web this
+      means the wasm-bindgen pipeline (ggrs's `wasm-bindgen` feature, Trunk)
+      and dropping the loader stubs in `index.html` and the `getrandom`
+      byte source.
 - [ ] Couch + online: several local players per machine in one session. The
       cap counts machines, not fighters; the slot binder already claims only
       local handles.
@@ -67,10 +70,10 @@ to avoid that trap.
 
 ## Phase 4 — Controllers & input
 
-> **Goal:** keyboard, standard gamepads, and a native GameCube adapter all map
-> to the same `Input`.
-> **Proves:** the input-source abstraction holds and analog fidelity survives
-> quantization, without ever touching determinism.
+> **Goal:** keyboard, standard gamepads, and a native GameCube adapter all
+> map to the same `Input`.
+> **Proves:** the input-source abstraction holds and analog fidelity
+> survives quantization, without ever touching determinism.
 
 - [x] Input-source abstraction in `pf_app` (platform layer only; four
       keyboard layouts wired).
